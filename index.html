@@ -1,0 +1,1419 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff2f6">
+<title>Mon budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap">
+<!-- Chart.js servi avec la page (dossier lib/) : aucune donnée dedans, fonctionne hors ligne -->
+<script src="lib/chart.umd.js" defer></script>
+<style>
+/* Thème « Bonbon » (poliesivouplait.com) — copie de référence dans theme.css */
+:root{--fond-bonbon:#fff2f6;--bordeaux:#500917;--framboise:#a21339;--rose-bonbon:#ef7cc4;--blush:#ffe4ee;--blanc:#fff;--marine:#222b4b;--gris-doux:#f2f2f4;
+--fond-page:var(--fond-bonbon);--fond-carte:var(--blanc);--fond-bloc:var(--blush);--texte-principal:var(--bordeaux);--texte-secondaire:var(--framboise);--accent:var(--framboise);--aplat-tendre:var(--rose-bonbon);--trait:var(--rose-bonbon);--focus:var(--framboise);--fond-alerte:var(--gris-doux);--texte-alerte:var(--marine);--positif:#2f7d4f;
+--e1:4px;--e2:8px;--e3:12px;--e4:16px;--e5:24px;--e6:32px;--e7:48px;--zone-tactile:44px;--rayon:8px;--rayon-carte:16px;
+--police-affichage:'DM Serif Display',Georgia,serif;--police-structure:'DM Sans',system-ui,-apple-system,sans-serif;
+--t-affichage:32px;--t-titre:24px;--t-sous-titre:20px;--t-texte:16px;--t-mention:14px;--interligne-texte:1.5;--interligne-affichage:1.15}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fond-page);color:var(--texte-principal);font-family:var(--police-structure);font-size:var(--t-texte);line-height:var(--interligne-texte);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+h1,h2{font-family:var(--police-affichage);font-weight:400;line-height:var(--interligne-affichage);margin:0}
+h1{font-size:var(--t-affichage)}h2{font-size:var(--t-titre)}h3{font-size:var(--t-sous-titre);font-weight:600;margin:0}
+p{margin:0}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button,input,select{font:inherit;color:inherit}
+button{min-height:var(--zone-tactile);min-width:var(--zone-tactile);border:1px solid var(--trait);background:var(--fond-carte);border-radius:var(--rayon);padding:var(--e2) var(--e4);cursor:pointer}
+button.primaire{background:var(--accent);color:var(--blanc);border-color:var(--accent);font-weight:600}
+button.douce{background:var(--fond-bloc);border-color:var(--fond-bloc)}
+button.lien{border:0;background:none;color:var(--texte-secondaire);text-decoration:underline;padding:var(--e2)}
+button:disabled{opacity:.5;cursor:default}
+input[type=text],input[type=password],input[type=search]{width:100%;min-height:var(--zone-tactile);border:1px solid var(--trait);border-radius:var(--rayon);padding:var(--e2) var(--e3);background:var(--fond-carte)}
+label{display:block;margin:var(--e3) 0 var(--e1);font-weight:500}
+.mention{font-size:var(--t-mention);color:var(--texte-secondaire)}
+.hidden{display:none!important}
+.page{max-width:600px;margin:0 auto;padding:var(--e4) var(--e4) var(--e5)}
+header.haut{display:flex;align-items:baseline;justify-content:space-between;gap:var(--e3);padding:var(--e4) var(--e4) 0;max-width:600px;margin:0 auto}
+.badge{display:inline-block;font-size:12px;border-radius:999px;padding:2px 10px;background:var(--fond-bloc);color:var(--texte-secondaire)}
+.badge.ok{background:#e4f3ea;color:var(--positif)}.badge.warn{background:#fff1d6;color:#8a5a00}.badge.bad{background:#fde3e1;color:#9c2a24}
+.carte{background:var(--fond-carte);border-radius:var(--rayon-carte);padding:var(--e4);margin:var(--e3) 0;box-shadow:0 1px 0 rgba(80,9,23,.06)}
+.carte.tendre{background:var(--fond-bloc)}
+.ligne{display:flex;align-items:center;gap:var(--e3)}
+.ligne .pousse{flex:1;min-width:0}
+.pastille{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;background:var(--fond-bloc)}
+.mt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.mt.pos{color:var(--positif)}
+.tronque{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* barre basse */
+nav#nav{position:fixed;left:0;right:0;bottom:0;background:var(--fond-carte);border-top:1px solid var(--trait);display:flex;justify-content:space-around;padding:var(--e1) 0 env(safe-area-inset-bottom);z-index:20}
+nav#nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--texte-secondaire);padding:var(--e1) var(--e3);flex:1;max-width:150px}
+nav#nav button span.ico{font-size:22px}
+nav#nav button.on{color:var(--texte-principal);font-weight:600}
+nav#nav button .point{position:absolute;margin-left:28px;margin-top:-2px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+section.screen{display:none}section.screen.on{display:block}
+/* accueil */
+.gros-chiffres{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--e2);text-align:center}
+.gros-chiffres .val{font-family:var(--police-affichage);font-size:22px}
+.gros-chiffres .lab{font-size:12px;color:var(--texte-secondaire)}
+.importer{border:2px dashed var(--trait);border-radius:var(--rayon-carte);padding:var(--e4);text-align:center;background:var(--fond-carte)}
+.importer.over{background:var(--fond-bloc)}
+.carte-classer{text-align:center}
+.carte-classer .nom{font-family:var(--police-affichage);font-size:var(--t-titre);margin:var(--e2) 0 var(--e1)}
+.carte-classer .question{font-size:var(--t-sous-titre);margin:var(--e3) 0 var(--e4)}
+.boutons{display:flex;gap:var(--e2);flex-wrap:wrap;justify-content:center}
+.boutons button{flex:1;min-width:110px}
+.progres{height:6px;background:var(--fond-bloc);border-radius:3px;overflow:hidden;margin:var(--e3) 0}
+.progres i{display:block;height:100%;background:var(--accent)}
+/* opérations */
+.mois-nav{display:flex;align-items:center;justify-content:space-between;margin:var(--e2) 0 var(--e3)}
+.mois-nav h2{font-size:var(--t-sous-titre)}
+.jour{margin:var(--e4) 0 var(--e1);font-weight:600;color:var(--texte-secondaire);font-size:var(--t-mention)}
+.op{width:100%;text-align:left;border:0;border-radius:var(--rayon);background:var(--fond-carte);padding:var(--e2) var(--e3);margin:var(--e1) 0;display:flex;align-items:center;gap:var(--e3)}
+.op.aclasser{outline:2px dashed var(--trait);outline-offset:-2px}
+.op .cat{font-size:12px;color:var(--texte-secondaire)}
+/* tuiles de catégories */
+.tuiles{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--e2)}
+.tuile{border:1px solid transparent;border-radius:var(--rayon-carte);background:var(--fond-carte);padding:var(--e3) var(--e2);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:88px;text-align:center}
+.tuile .emo{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px}
+.tuile .nom{font-size:13px;font-weight:600;line-height:1.2}
+.tuile .n{font-size:12px;color:var(--texte-secondaire)}
+.tuile.on{border-color:var(--accent);background:var(--fond-bloc)}
+.tuile.cible{outline:3px solid var(--accent)}
+.tuile.ajout{border:2px dashed var(--trait);background:transparent}
+/* feuille (panneau du bas) */
+#voile{position:fixed;inset:0;background:rgba(80,9,23,.35);z-index:30}
+#feuille{position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:var(--fond-page);border-radius:var(--rayon-carte) var(--rayon-carte) 0 0;padding:var(--e3) var(--e4) calc(var(--e5) + env(safe-area-inset-bottom));z-index:31;max-width:600px;margin:0 auto}
+#feuille h3{margin-bottom:var(--e3)}
+.liste-actions button{display:block;width:100%;text-align:left;margin:var(--e2) 0}
+.pastilles-couleur{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e2) 0}
+.pastilles-couleur button{width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;padding:0;border:3px solid transparent}
+.pastilles-couleur button.on{border-color:var(--texte-principal)}
+.emojis{display:flex;flex-wrap:wrap;gap:var(--e1)}
+.emojis button{min-width:44px;padding:0;font-size:22px;border-color:transparent;background:transparent}
+.emojis button.on{background:var(--fond-bloc)}
+/* analyse */
+.camembert{position:relative;max-width:300px;margin:var(--e3) auto}
+.legende button{display:flex;align-items:center;gap:var(--e2);width:100%;border:0;background:none;padding:var(--e2) 0;text-align:left}
+.legende .puce{width:14px;height:14px;border-radius:4px;flex:none}
+.legende .pousse{flex:1}
+/* toasts */
+#toasts{position:fixed;left:0;right:0;bottom:calc(72px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:var(--e2);z-index:40;pointer-events:none}
+.toast{background:var(--marine);color:var(--blanc);border-radius:999px;padding:var(--e2) var(--e4);max-width:92%;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.bad{background:#9c2a24}.toast.ok{background:var(--positif)}
+#annuler-bar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:25;pointer-events:none}
+#annuler-bar button{pointer-events:auto;background:var(--marine);color:var(--blanc);border-color:var(--marine);border-radius:999px}
+/* connexion */
+#ecran-connexion{max-width:420px;margin:0 auto;padding:var(--e6) var(--e4)}
+#ecran-connexion h1{margin-bottom:var(--e2)}
+.detail-tech summary{cursor:pointer;color:var(--texte-secondaire);margin:var(--e3) 0}
+@media (min-width:600px){.tuiles{grid-template-columns:repeat(4,1fr)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="ecran-connexion">
+  <h1>Mon budget</h1>
+  <p class="mention">Tes opérations restent chiffrées : personne d'autre que toi ne peut les lire.</p>
+  <div id="co-form" class="hidden">
+    <label for="co-token">Ton jeton d'accès</label>
+    <input id="co-token" type="password" autocomplete="off" placeholder="Colle ici le jeton reçu">
+    <label for="co-phrase">Ta phrase secrète</label>
+    <input id="co-phrase" type="password" autocomplete="off" placeholder="4 ou 5 mots faciles à retenir">
+    <p class="mention" id="co-force"></p>
+    <label class="ligne" style="margin-top:var(--e4)"><input id="co-souvenir" type="checkbox" checked> <span>Se souvenir de moi sur cet appareil</span></label>
+    <div id="co-code-label"><label for="co-code">Un petit code pour rouvrir vite (4 à 8 chiffres)</label><input id="co-code" type="password" inputmode="numeric" autocomplete="off"></div>
+    <details class="detail-tech"><summary>Détails techniques</summary>
+      <label for="co-depot">Dépôt GitHub</label><input id="co-depot" type="text" autocomplete="off" placeholder="proprietaire/depot">
+      <label for="co-branche">Branche</label><input id="co-branche" type="text" value="main">
+      <label for="co-machine">Nom de cet appareil</label><input id="co-machine" type="text" maxlength="12">
+    </details>
+    <p class="mention" id="co-msg" style="margin:var(--e3) 0"></p>
+    <button class="primaire" id="co-connecter" style="width:100%">C'est parti</button>
+  </div>
+  <div id="co-ouvrir" class="hidden">
+    <p id="co-ouvrir-msg" style="margin:var(--e4) 0 var(--e2)">Ton petit code ?</p>
+    <input id="co-ouvrir-code" type="password" inputmode="numeric" autocomplete="off">
+    <button class="primaire" id="co-ouvrir-btn" style="width:100%;margin-top:var(--e3)">Ouvrir</button>
+    <button class="lien" id="co-ouvrir-phrase">J'ai oublié mon code</button>
+  </div>
+</div>
+
+<header class="haut hidden" id="entete">
+  <h1 id="titre-app">Mon budget</h1>
+  <span class="badge" id="badge-sync"></span>
+</header>
+
+<section class="screen hidden" id="screen-accueil"><div class="page">
+  <div id="accueil-chiffres"></div>
+  <div class="importer" id="drop">
+    <p>📥 <b>Importer mes dernières opérations</b></p>
+    <p class="mention">Le fichier CSV de La Banque Postale, en le glissant ici ou en le choisissant.</p>
+    <input id="in-csv" type="file" accept=".csv,text/csv" multiple class="hidden">
+    <button class="douce" id="btn-choisir" style="margin-top:var(--e2)">Choisir le fichier</button>
+    <p class="mention" id="import-msg" style="margin-top:var(--e2)"></p>
+  </div>
+  <div id="boite"></div>
+</div></section>
+
+<section class="screen hidden" id="screen-ops"><div class="page">
+  <div class="mois-nav"><button id="mois-prec" aria-label="Mois précédent">‹</button><h2 id="mois-titre"></h2><button id="mois-suiv" aria-label="Mois suivant">›</button></div>
+  <div id="ops-liste"></div>
+</div></section>
+
+<section class="screen hidden" id="screen-analyse"><div class="page">
+  <div class="mois-nav"><button id="an-prec" aria-label="Mois précédent">‹</button><h2 id="an-titre"></h2><button id="an-suiv" aria-label="Mois suivant">›</button></div>
+  <div class="carte"><div class="camembert"><canvas id="camembert" width="300" height="300"></canvas></div><div id="an-chiffres" class="gros-chiffres"></div></div>
+  <div class="carte legende" id="an-legende"></div>
+  <div id="an-detail"></div>
+</div></section>
+
+<section class="screen hidden" id="screen-plus"><div class="page">
+  <h2>🏷️ Mes catégories</h2>
+  <p class="mention" style="margin:var(--e1) 0 var(--e3)">Touche une catégorie pour la modifier. Glisse-la sur une autre pour les réunir.</p>
+  <div class="tuiles" id="tuiles"></div>
+  <div id="tuiles-masquees"></div>
+  <h2 style="margin-top:var(--e6)">⚙️ Réglages</h2>
+  <div class="carte">
+    <label for="reg-prenom">Ton prénom et ton nom</label>
+    <input id="reg-prenom" type="text" autocomplete="off" placeholder="Comme sur tes virements">
+    <p class="mention">Les virements que tu te fais à toi-même (livret, autre banque) passeront en épargne, pas en revenus.</p>
+    <div id="reg-prenom-devine" class="mention"></div>
+  </div>
+  <div class="carte">
+    <p id="reg-sync" class="mention"></p>
+    <div class="boutons" style="justify-content:flex-start;margin-top:var(--e2)">
+      <button id="btn-verifier">Vérifier maintenant</button>
+      <button id="btn-phrase">Changer ma phrase secrète</button>
+      <button id="btn-export">Télécharger une copie</button>
+      <button id="btn-deconnecter">Me déconnecter ici</button>
+    </div>
+  </div>
+  <p class="mention" style="text-align:center;margin-top:var(--e4)"><span id="version"></span> · <button class="lien" id="btn-tests">vérifier que tout marche</button></p>
+  <div id="tests" class="mention"></div>
+</div></section>
+
+<nav id="nav" class="hidden">
+  <button data-screen="accueil"><span class="ico">🏠</span>Accueil</button>
+  <button data-screen="ops"><span class="ico">📋</span>Opérations</button>
+  <button data-screen="analyse"><span class="ico">📊</span>Analyse</button>
+  <button data-screen="plus"><span class="ico">⚙️</span>Plus</button>
+</nav>
+<div id="annuler-bar" class="hidden"><button id="btn-annuler">↩ Annuler</button></div>
+<div id="voile" class="hidden"></div>
+<div id="feuille" class="hidden"></div>
+<div id="toasts"></div>
+<script>
+// ============================================================ CORE
+// Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
+// Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
+'use strict';
+const APP_VERSION = '0.1.0';
+const SCHEMA = 1;
+
+// ---------------------------------------------------------- util
+const util = {
+  nowIso() { return new Date().toISOString(); },
+  hash(str) {
+    const one = (seed) => { let h = seed >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16).padStart(8, '0'); };
+    return one(2166136261) + one(1255235903);
+  },
+  r2(n) { return Math.round(n * 100) / 100; },
+  montantFr(n) { return (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+  mois(dateIso) { return dateIso.slice(0, 7); },
+  moisSuivant(m) { const [y, mo] = m.split('-').map(Number); return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; },
+  moisPrecedent(m) { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; },
+  MOIS_FR: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+  moisLisible(m) { const [y, mo] = m.split('-').map(Number); const n = util.MOIS_FR[mo - 1] || m; return n.charAt(0).toUpperCase() + n.slice(1) + ' ' + y; },
+  jourLisible(dateIso) { const d = new Date(dateIso + 'T12:00:00'); return isNaN(d) ? dateIso : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+};
+
+// ---------------------------------------------------------- norm : clé marchand, nom de tiers, nom lisible
+const norm = {
+  stripAccents(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''); },
+  // libellé normalisé (sert à l'id et à la clé) : espaces multiples → un seul, trim ; le libellé brut est gardé tel quel
+  libelle(s) { return String(s || '').replace(/\s+/g, ' ').trim(); },
+  CIVILITES: /^(M\.?|MR|MME|MLLE|MLE|MONSIEUR|MADAME|MADEMOISELLE|DR)$/,
+  mots(nom) { return norm.stripAccents(nom).toUpperCase().split(/[\s,]+/).filter(t => t && !norm.CIVILITES.test(t)); },
+  // deux écritures du même nom ? vrai quand tous les mots du plus court (au moins deux) sont dans l'autre, ordre et civilités ignorés
+  memePersonne(a, b) {
+    const ma = norm.mots(a), mb = norm.mots(b);
+    if (ma.length < 2 || mb.length < 2) return false;
+    const [court, long] = ma.length <= mb.length ? [ma, mb] : [mb, ma];
+    return court.every(t => long.includes(t));
+  },
+  // nom lisible pour l'écran : clé en capitales initiales
+  nomLisible(op) {
+    const s = String(op.cle || op.libelle || '');
+    return s.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, a, c) => a + c.toUpperCase()).trim() || op.libelle;
+  }
+};
+
+// ---------------------------------------------------------- banques : un parseur par banque, même sortie { date, libelle, montant, type, cle, tiers, motif }
+// Une banque = { id, nom, detecter(texte), decoder(octets), lire(texte, nomFichier) }. Pour en ajouter une : un objet de plus dans BANQUES.
+const lbp = {
+  id: 'lbp', nom: 'La Banque Postale',
+  // windows-1252 ; garde-fou : si le texte décodé contient « NumÃ©ro », le fichier était en UTF-8
+  decoder(octets) {
+    const u8 = octets instanceof Uint8Array ? octets : new Uint8Array(octets);
+    let t; try { t = new TextDecoder('windows-1252').decode(u8); } catch { t = new TextDecoder('latin1').decode(u8); }
+    if (/NumÃ©ro/.test(t)) t = new TextDecoder('utf-8').decode(u8);
+    return t.replace(/^﻿/, '');
+  },
+  detecter(texte) { return /^Date;Libell/m.test(texte); },
+  champs(ligne) {
+    const out = []; let f = '', q = false;
+    for (let i = 0; i < ligne.length; i++) {
+      const c = ligne[i];
+      if (q) { if (c === '"') { if (ligne[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ';') { out.push(f); f = ''; }
+      else f += c;
+    }
+    out.push(f);
+    return out.map(x => x.trim());
+  },
+  montant(s) { const t = String(s ?? '').replace(/[\s  ]/g, '').replace(',', '.'); if (t === '' || !/^[-+]?\d+(\.\d+)?$/.test(t)) return null; return Number(t); },
+  dateIso(s) { const m = /^(\d\d)\/(\d\d)\/(\d{4})$/.exec(String(s ?? '').trim()); return m ? `${m[3]}-${m[2]}-${m[1]}` : null; },
+  // type, clé marchand, tiers, motif d'après le libellé normalisé (premier préfixe qui matche)
+  analyser(libelle, montant) {
+    const L = norm.stripAccents(libelle).toUpperCase();
+    const sansCarte = (s) => s.replace(/\s*CARTE NUMERO \d+/g, '').replace(/\s*\d\d\.\d\d\.\d\d\b/g, '').replace(/\s+/g, ' ').trim();
+    let m;
+    if ((m = /^ACHAT CB (.+?)\s+\d\d\.\d\d\.\d\d\b/.exec(L))) return { type: 'carte', cle: sansCarte(m[1]), tiers: null, motif: null };
+    if ((m = /^CREDIT CARTE BANCAIRE (.+?)\s+\d\d\.\d\d\.\d\d\b/.exec(L))) return { type: 'avoir', cle: sansCarte(m[1]), tiers: null, motif: null };
+    if ((m = /^PRELEVEMENT DE (.+?)(\s+REF\s*:.*)?$/.exec(L))) return { type: 'prelevement', cle: m[1].trim(), tiers: null, motif: null };
+    if ((m = /^VIREMENT INSTANTANE WERO A (.+)$/.exec(L))) { const t = lbp.tiers(libelle.replace(/^VIREMENT INSTANTANE WERO A\s+/i, '')); return { type: 'virement_emis', cle: 'WERO ' + (t.nom || m[1].trim()), tiers: t.nom, motif: t.motif }; }
+    if ((m = /^VIREMENT (INSTANTANE |PERMANENT |SEPA )?(DE|A|POUR) (.+)$/.exec(L))) {
+      const t = lbp.tiers(libelle.replace(/^VIREMENT (INSTANTANE |PERMANENT |SEPA )?(DE|A|POUR)\s+/i, ''));
+      const recu = m[2] === 'DE';
+      return { type: recu ? 'virement_recu' : 'virement_emis', cle: 'VIREMENT ' + (recu ? 'DE' : 'A') + ' ' + (t.nom || sansCarte(m[3]).split(' ').slice(0, 4).join(' ')), tiers: t.nom, motif: t.motif };
+    }
+    if (/^RETRAIT/.test(L)) return { type: 'especes', cle: 'RETRAIT', tiers: null, motif: null };
+    if (/^(REMISE DE CHEQUE|CHEQUE)/.test(L)) return { type: 'cheque', cle: 'CHEQUE', tiers: null, motif: null };
+    if ((m = /^(COTISATION|FRAIS|COMMISSION)\b/.exec(L))) return { type: 'prelevement', cle: m[1], tiers: null, motif: null };
+    return { type: montant > 0 ? 'virement_recu' : 'autre', cle: sansCarte(L), tiers: null, motif: null };
+  },
+  // nom d'un particulier : mots en majuscules après le préfixe, arrêt sur REFERENCE / DEFAULT / REF / un mot avec chiffre / un mot en minuscules ; civilités ignorées
+  tiers(reste) {
+    const toks = norm.stripAccents(reste).replace(/\s+/g, ' ').trim().split(' ');
+    const nom = []; let i = 0;
+    for (; i < toks.length; i++) {
+      const t = toks[i], T = t.toUpperCase();
+      if (!nom.length && norm.CIVILITES.test(T)) continue;
+      if (/^(REFERENCE|DEFAULT|REF|MOTIF)\b/.test(T) || /\d/.test(t) || t !== T) break;
+      if (/^[A-Z][A-Z'-]*$/.test(T)) nom.push(T); else break;
+    }
+    let motif = toks.slice(i).join(' ').replace(/^((REFERENCE|DEFAULT|REF|MOTIF)\b\s*:?\s*)+/i, '').trim();
+    if (/^[\d\s:.-]*$/.test(motif)) motif = '';
+    return { nom: nom.length >= 2 ? nom.slice(0, 4).join(' ') : null, motif: motif || null };
+  },
+  // texte → { lues, erreurs[], lignes[], solde, dateExport }
+  lire(texte, nomFichier) {
+    const res = { banque: 'lbp', fichier: nomFichier || '', lues: 0, erreurs: [], lignes: [], solde: null, dateExport: null };
+    const lignes = texte.split(/\r?\n/);
+    const iEntete = lignes.findIndex(l => /^Date;Libell/.test(l));
+    if (iEntete < 0) { res.erreurs.push('en-tête « Date;Libellé;… » introuvable : ce n\'est pas un export La Banque Postale'); return res; }
+    for (const l of lignes.slice(0, iEntete)) {
+      const c = lbp.champs(l);
+      if (/^date$/i.test(c[0] || '')) res.dateExport = lbp.dateIso(c[1]);
+      if (/^solde/i.test(c[0] || '')) res.solde = lbp.montant(c[1]);
+      // Numéro Compte, Type de compte… : lus, jamais conservés
+    }
+    const rangs = {};
+    lignes.slice(iEntete + 1).forEach((l, i) => {
+      if (!l.trim()) return;
+      const num = iEntete + i + 2;
+      const c = lbp.champs(l);
+      const date = lbp.dateIso(c[0]);
+      if (!date) { res.erreurs.push(`ligne ${num} : date « ${c[0] || ''} » illisible`); return; }
+      const libelle = norm.libelle(c[1]);
+      const montant = lbp.montant(c[2]);
+      if (montant === null) { res.erreurs.push(`ligne ${num} : montant « ${c[2] || ''} » illisible`); return; }
+      res.lues++;
+      const k = [date, libelle, montant.toFixed(2)].join('|');
+      const rang = rangs[k] = (rangs[k] || 0) + 1;
+      res.lignes.push(Object.assign({ id: util.hash(k + '|' + rang), date, libelle: c[1], libelle_norm: libelle, montant, rang }, lbp.analyser(libelle, montant)));
+    });
+    return res;
+  }
+};
+const BANQUES = [lbp];
+const banques = {
+  parId(id) { return BANQUES.find(b => b.id === id) || null; },
+  // octets d'un fichier → résultat du parseur de la banque reconnue, ou une erreur lisible
+  lire(octets, nomFichier) {
+    for (const b of BANQUES) { const t = b.decoder(octets); if (b.detecter(t)) return b.lire(t, nomFichier); }
+    return { banque: null, fichier: nomFichier || '', lues: 0, erreurs: ['Ce fichier n\'a pas la forme attendue (export CSV La Banque Postale).'], lignes: [], solde: null, dateExport: null };
+  }
+};
+
+// ---------------------------------------------------------- serial : écriture déterministe (clés triées, un objet par ligne)
+const serial = {
+  sortDeep(v) {
+    if (Array.isArray(v)) return v.map(serial.sortDeep);
+    if (v && typeof v === 'object') { const o = {}; Object.keys(v).sort().forEach(k => { o[k] = serial.sortDeep(v[k]); }); return o; }
+    return v;
+  },
+  fmt(v, ind) {
+    const pad = ' '.repeat(ind);
+    if (Array.isArray(v)) {
+      if (!v.length) return '[]';
+      if (v.every(x => x && typeof x === 'object' && !Array.isArray(x))) return '[\n' + v.map(x => pad + '  ' + JSON.stringify(x)).join(',\n') + '\n' + pad + ']';
+      return JSON.stringify(v);
+    }
+    if (v && typeof v === 'object') { const ks = Object.keys(v); if (!ks.length) return '{}'; return '{\n' + ks.map(k => pad + '  ' + JSON.stringify(k) + ': ' + serial.fmt(v[k], ind + 2)).join(',\n') + '\n' + pad + '}'; }
+    return JSON.stringify(v);
+  },
+  stringify(obj) { return serial.fmt(serial.sortDeep(obj), 0) + '\n'; }
+};
+
+// ---------------------------------------------------------- catalogue des catégories
+// [code, libellé, emoji, couleur, interne]. Les codes ne sont jamais affichés ; ils ne sont jamais supprimés (Méthodo §2.11).
+const CATALOGUE_BASE = [
+  ['REV', 'Revenus', '💶', '#2f7d4f', false],
+  ['FIX', 'Loyer & factures', '🏠', '#500917', false],
+  ['ABO', 'Abonnements', '📱', '#6c4fa0', false],
+  ['ALIM.COURSES', 'Courses', '🛒', '#a21339', false],
+  ['ALIM.RESTO', 'Restos & cafés', '🍽️', '#ef7cc4', false],
+  ['MOB', 'Transport', '🚗', '#222b4b', false],
+  ['LOIS.SHOPPING', 'Shopping', '🛍️', '#d4607f', false],
+  ['LOIS.SORTIES', 'Sorties & voyages', '🎟️', '#e59a2b', false],
+  ['LOIS.CADEAUX', 'Cadeaux', '🎁', '#c23d8c', false],
+  ['SANTE', 'Santé & beauté', '💊', '#2a8f9d', false],
+  ['EPG', 'Épargne', '🐷', '#7fb2a4', true],
+  ['HB', 'Hors budget', '🔄', '#9a9aa8', true],
+  ['AUTRE', 'Autre', '❓', '#c9c3c7', false]
+];
+const CAT_DEFAUT = 'AUTRE';
+const COULEURS = ['#a21339', '#ef7cc4', '#500917', '#222b4b', '#2f7d4f', '#6c4fa0', '#e59a2b', '#2a8f9d', '#d4607f', '#c23d8c', '#7fb2a4', '#9a9aa8', '#c9c3c7', '#4a6b96', '#d9cdb8', '#3a2f2a'];
+const CATALOGUE = CATALOGUE_BASE.map(c => c.slice());
+const CAT = {};
+const catalogue = {
+  defaut() { return { ajouts: [], libelles: {}, emojis: {}, couleurs: {}, masques: [], fusions: [], ordre: [] }; },
+  conf(rules) { if (!rules.catalogue) rules.catalogue = catalogue.defaut(); const c = rules.catalogue; for (const [k, v] of Object.entries(catalogue.defaut())) if (c[k] === undefined) c[k] = v; return c; },
+  codeValide(code) { return /^[A-Z][A-Z0-9-]*(\.[A-Z][A-Z0-9-]*)?$/.test(code); },
+  // nom libre → code : accents retirés, majuscules, tirets ; unique
+  codeDepuisNom(nom, parent) {
+    let base = norm.stripAccents(nom).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'CAT';
+    if (/^\d/.test(base)) base = 'C' + base;
+    let code = parent ? parent.split('.')[0] + '.' + base : base; let n = 2;
+    const pris = new Set(CATALOGUE.map(x => x[0]));
+    while (pris.has(code)) code = (parent ? parent.split('.')[0] + '.' + base : base) + '-' + (n++);
+    return code;
+  },
+  // recalcule CATALOGUE et CAT en place (les références restent valables)
+  appliquer(rules) {
+    const c = rules ? catalogue.conf(rules) : catalogue.defaut();
+    const liste = CATALOGUE_BASE.map(x => x.slice());
+    for (const a of c.ajouts) if (!liste.some(x => x[0] === a[0])) liste.push([a[0], a[1], a[2] || '🏷️', a[3] || COULEURS[liste.length % COULEURS.length], !!a[4]]);
+    for (const x of liste) { if (c.libelles[x[0]]) x[1] = c.libelles[x[0]]; if (c.emojis[x[0]]) x[2] = c.emojis[x[0]]; if (c.couleurs[x[0]]) x[3] = c.couleurs[x[0]]; }
+    const rang = (k) => { const i = c.ordre.indexOf(k); return i >= 0 ? i : 1000 + liste.findIndex(x => x[0] === k); };
+    liste.sort((a, b) => rang(a[0]) - rang(b[0]));
+    CATALOGUE.length = 0; CATALOGUE.push(...liste);
+    for (const k of Object.keys(CAT)) delete CAT[k];
+    for (const [code, libelle, emoji, couleur, interne] of liste) CAT[code] = { code, libelle, emoji, couleur, interne, masque: c.masques.includes(code), livre: CATALOGUE_BASE.some(x => x[0] === code) };
+    return CATALOGUE;
+  },
+  visibles() { return CATALOGUE.filter(x => !CAT[x[0]].masque).map(x => x[0]); },
+  interne(code) { return !!(CAT[code] && CAT[code].interne); },
+  ajouter(rules, nom, emoji, couleur, parent, interne) {
+    const l = String(nom || '').trim(); if (!l) throw new Error('Il faut un nom');
+    const c = catalogue.conf(rules);
+    const code = catalogue.codeDepuisNom(l, parent && CAT[parent] ? parent : null);
+    c.ajouts.push([code, l, String(emoji || '🏷️').trim() || '🏷️', couleur || COULEURS[CATALOGUE.length % COULEURS.length], !!interne]);
+    c.masques = c.masques.filter(x => x !== code);
+    catalogue.appliquer(rules);
+    return code;
+  },
+  renommer(rules, code, libelle) {
+    const c = catalogue.conf(rules); if (!CAT[code]) throw new Error('catégorie inconnue');
+    const l = String(libelle || '').trim(); if (!l) throw new Error('Il faut un nom');
+    const base = CATALOGUE_BASE.find(x => x[0] === code); const ajout = c.ajouts.find(x => x[0] === code);
+    if (base && base[1] === l) delete c.libelles[code]; else if (ajout) ajout[1] = l; else c.libelles[code] = l;
+    catalogue.appliquer(rules);
+  },
+  styler(rules, code, emoji, couleur) {
+    const c = catalogue.conf(rules); if (!CAT[code]) throw new Error('catégorie inconnue');
+    const base = CATALOGUE_BASE.find(x => x[0] === code); const ajout = c.ajouts.find(x => x[0] === code);
+    const e = String(emoji || '').trim(), k = String(couleur || '').trim();
+    if (e) { if (base && base[2] === e) delete c.emojis[code]; else if (ajout) ajout[2] = e; else c.emojis[code] = e; }
+    if (k) { if (base && base[3] === k) delete c.couleurs[code]; else if (ajout) ajout[3] = k; else c.couleurs[code] = k; }
+    catalogue.appliquer(rules);
+  },
+  masquer(rules, code, masque) {
+    const c = catalogue.conf(rules); if (!CAT[code]) throw new Error('catégorie inconnue');
+    if (code === CAT_DEFAUT) throw new Error('la catégorie par défaut reste visible');
+    c.masques = c.masques.filter(x => x !== code);
+    if (masque !== false) c.masques.push(code);
+    catalogue.appliquer(rules);
+  },
+  deplacer(rules, code, delta) {
+    const c = catalogue.conf(rules); const l = CATALOGUE.map(x => x[0]); const i = l.indexOf(code), j = i + delta; if (i < 0 || j < 0 || j >= l.length) return false;
+    l.splice(i, 1); l.splice(j, 0, code); c.ordre = l; catalogue.appliquer(rules); return true;
+  },
+  nbLignes(data, code, mois) { return data.operations.filter(o => o.categorie === code && (!mois || util.mois(o.date) === mois)).length; },
+  // fusion : toutes les lignes (classées à la main comprises), règles, tiers et propositions passent de `de` à `vers` ; `de` est masqué ; journal daté
+  fusionner(rules, data, de, vers) {
+    if (!CAT[de] || !CAT[vers]) throw new Error('catégorie inconnue');
+    if (de === vers) throw new Error('même catégorie');
+    if (de === CAT_DEFAUT) throw new Error('la catégorie par défaut ne se fusionne pas');
+    const c = catalogue.conf(rules); let n = 0;
+    for (const o of data.operations) {
+      if (o.categorie === de) { o.categorie = vers; n++; }
+      if (o.propositions && o.propositions.includes(de)) o.propositions = [...new Set(o.propositions.map(p => p === de ? vers : p))];
+    }
+    const d = util.nowIso().slice(0, 10);
+    for (const r of rules.rules) { if (r.categorie === de) { r.categorie = vers; r.modifie = d; } if (r.options && r.options.propositions) r.options.propositions = [...new Set(r.options.propositions.map(p => p === de ? vers : p))]; }
+    for (const h of rules.historique || []) if (h.categorie === de) h.categorie = vers;
+    for (const t of Object.values(rules.tiers || {})) if (t.categorie === de) t.categorie = vers;
+    c.fusions.push({ de, vers, date: d, lignes: n });
+    catalogue.masquer(rules, de, true);
+    return n;
+  }
+};
+
+// ---------------------------------------------------------- règles d'amorçage (regex sur la clé marchand, en préfixe : la banque tronque les noms)
+// [pattern, sens, catégorie, options]. Aucun marchand propre à une personne ici.
+const SEEDS = [
+  ['^(INTERMARCHE|CARREFOUR|MONOP|LECLERC|AUCHAN|LIDL|CASINO|PICARD|GRAND FRAIS|FRANPRIX|BIOCOOP|NATURALIA|SUPER U|HYPER U)', 'debit', 'ALIM.COURSES'],
+  ['^(IVS|SELECTA|TRAITEUR|BOULANG|UBER ?\\*? ?EATS|DELIVEROO|MCDO|MC DONALD|BURGER|KFC|STARBUCKS|COLUMBUS)|TRAITEUR|RESTAU|PIZZ|SUSHI', 'debit', 'ALIM.RESTO'],
+  ['^(SNCF|OUIGO|RATP|RLA|LIGNES D|UBER(?! ?\\*? ?EATS)|BOLT|TOTAL|ESSO|BP |AVIA|SHELL|VINCI|ESCOTA|SANEF|APRR|INDIGO|Q-PARK|EFFIA|BLABLACAR|FLIXBUS|EASYJET|RYANAIR|TRANSAVIA|AIR FRANCE)', 'debit', 'MOB'],
+  ['^(UNIQLO|ZARA|H&M|H & M|AMAZON|AMZN|VINTED|SHEIN|IKEA|ACTION|PRIMARK|MANGO|KIABI|DECATHLON|FNAC|LEROY|CASTORAMA|ETAM|BERSHKA|PULL&BEAR|SEZANE)', 'debit', 'LOIS.SHOPPING'],
+  ['^(SFR|ORANGE|FREE|BOUYGUES|EDF|ENGIE|TOTALENERGIES|PRIMEO|VEOLIA|SUEZ|ASSURANCE|MAIF|MACIF|MAAF|AXA|ALLIANZ|GMF|MATMUT)', 'debit', 'FIX'],
+  ['^(SPOTIFY|NETFLIX|APPLE\\.COM|APPLE COM|DISNEY|CANAL|PAYPAL|DEEZER|PRIME VIDEO|AMAZON PRIME|GOOGLE|ICLOUD|YOUTUBE|DROPBOX)', 'debit', 'ABO', { a_valider: true }],
+  ['^(PHARMA|DOCTEUR|DR |DENTISTE|OPTIC|COIFF|SEPHORA|NOCIBE|MARIONNAUD|YVES ROCHER|LABORATOIRE|CLINIQUE|KINE|OSTEO)', 'debit', 'SANTE'],
+  ['^(PATHE|UGC|CINEMA|CGR|HOTEL|AIRBNB|BOOKING|HOSTEL|TICKETMASTER|FNAC SPECT|WEEZEVENT)', 'debit', 'LOIS.SORTIES'],
+  ['^(COTISATION|FRAIS|COMMISSION)$', 'debit', 'FIX']
+];
+const PAYE_RX = /PAYE DU MOIS|SALAIRE|\bPAIE\b/i;
+const RESTO_MOTIF_RX = /\b(resto|restau|bar|resta|brunch|pizza|apero|apéro|diner|dîner|dej|déj)\b/i;
+
+// ---------------------------------------------------------- modèle : rules / data, migration, dédoublonnage, fusion entre appareils
+const modele = {
+  meta(machine) { return { ecrit_le: util.nowIso(), machine: machine || null, app: APP_VERSION }; },
+  op(base) { return Object.assign({ categorie: null, statut: 'a_valider', regle_id: null, propositions: [], note: null, banque: 'lbp' }, base); },
+  seedRules() {
+    return SEEDS.map(([pattern, sens, categorie, opt], i) => ({
+      id: 's-' + String(i + 1).padStart(4, '0'), seed_key: pattern, match: 'regex', pattern, sens, categorie,
+      source: 'seed', actif: true, hits: 0, options: opt || null, cree: '2026-10-30', modifie: '2026-10-30'
+    }));
+  },
+  rulesDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), config: { titulaire: null, compteurs: {} }, rules: modele.seedRules(), historique: [], tiers: {}, catalogue: catalogue.defaut() }; },
+  dataDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), operations: [], imports: [], solde: null }; },
+  // seeds manquantes ajoutées (jamais modifiées), champs absents complétés
+  migrer(rules, data) {
+    let modif = false;
+    const keys = new Set(rules.rules.map(r => r.seed_key).filter(Boolean));
+    for (const s of modele.seedRules()) if (!keys.has(s.seed_key)) { rules.rules.push(s); modif = true; }
+    for (const r of rules.rules) { if (r.actif === undefined) { r.actif = true; modif = true; } if (r.hits === undefined) { r.hits = 0; modif = true; } }
+    for (const k of ['historique']) if (!rules[k]) { rules[k] = []; modif = true; }
+    if (!rules.tiers) { rules.tiers = {}; modif = true; }
+    if (!rules.config) { rules.config = {}; modif = true; }
+    if (!rules.config.compteurs) { rules.config.compteurs = {}; modif = true; }
+    if (rules.config.titulaire === undefined) { rules.config.titulaire = null; modif = true; }
+    if (!rules.catalogue) { rules.catalogue = catalogue.defaut(); modif = true; }
+    catalogue.appliquer(rules);
+    if (!data.imports) { data.imports = []; modif = true; }
+    if (data.solde === undefined) { data.solde = null; modif = true; }
+    for (const o of data.operations) { if (!o.propositions) { o.propositions = []; modif = true; } if (o.note === undefined) { o.note = null; modif = true; } if (!o.banque) { o.banque = 'lbp'; modif = true; } }
+    return modif;
+  },
+  pourEcriture(nom, obj) {
+    const c = JSON.parse(JSON.stringify(obj));
+    if (nom === 'data') { c.operations.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)); (c.imports || []).sort((a, b) => a.date.localeCompare(b.date)); }
+    if (nom === 'rules') c.rules.sort((a, b) => a.id.localeCompare(b.id));
+    return c;
+  },
+  dedup(existantes, nouvelles) {
+    const ids = new Set(existantes.map(o => o.id)); const inserees = [], doublons = [];
+    for (const o of nouvelles) { if (ids.has(o.id)) doublons.push(o); else { ids.add(o.id); inserees.push(o); } }
+    return { inserees, doublons };
+  },
+  // lignes d'un parseur → opérations insérées dans data (dédoublonnées) ; solde du compte relevé dans le préambule
+  importer(data, lu) {
+    const ops = lu.lignes.map(l => modele.op({ id: l.id, banque: lu.banque, date: l.date, libelle: l.libelle, cle: l.cle, type: l.type, tiers: l.tiers, motif: l.motif, montant: l.montant }));
+    const { inserees, doublons } = modele.dedup(data.operations, ops);
+    data.operations.push(...inserees);
+    if (lu.solde !== null && (!data.solde || (lu.dateExport || '') >= (data.solde.date || ''))) data.solde = { date: lu.dateExport, montant: lu.solde };
+    data.imports.push({ date: util.nowIso(), fichier: '', lues: lu.lues, nouvelles: inserees.length, doublons: doublons.length, rejetees: lu.erreurs.length });
+    return { inserees, doublons };
+  },
+  valider(nom, obj) {
+    if (!obj || typeof obj !== 'object') return `${nom} : pas un objet JSON`;
+    if (obj.schema !== SCHEMA) return `${nom} : schema ${obj.schema} inconnu (attendu ${SCHEMA})`;
+    if (!obj.meta || !obj.meta.ecrit_le) return `${nom} : meta.ecrit_le manquant`;
+    if (nom === 'data' && !Array.isArray(obj.operations)) return 'data : operations manquant';
+    if (nom === 'rules' && !Array.isArray(obj.rules)) return 'rules : rules manquant';
+    return null;
+  },
+  // fusion de deux data (deux appareils) : union des opérations par id ; une même ligne des deux côtés → la plus avancée gagne (classée > auto > à classer), à égalité « ici »
+  fusionner(ici, autre) {
+    const rang = (o) => o.statut === 'valide' ? 2 : o.statut === 'auto' ? 1 : 0;
+    const bilan = { communes: 0, ici_seul: 0, autre_seul: 0, prises_autre: 0 };
+    const res = { schema: SCHEMA, meta: ici.meta, operations: [], imports: [], solde: null };
+    const parId = new Map(ici.operations.map(o => [o.id, o])); const vus = new Set();
+    for (const a of autre.operations) {
+      const i = parId.get(a.id);
+      if (!i) { res.operations.push(JSON.parse(JSON.stringify(a))); bilan.autre_seul++; continue; }
+      vus.add(a.id); bilan.communes++;
+      const g = rang(a) > rang(i) ? a : i; if (g === a) bilan.prises_autre++;
+      res.operations.push(JSON.parse(JSON.stringify(g)));
+    }
+    for (const i of ici.operations) if (!vus.has(i.id)) { res.operations.push(JSON.parse(JSON.stringify(i))); bilan.ici_seul++; }
+    const cle = (x) => x.date + '|' + x.lues + '|' + x.nouvelles; const vusI = new Set();
+    for (const x of [...(ici.imports || []), ...(autre.imports || [])]) if (!vusI.has(cle(x))) { vusI.add(cle(x)); res.imports.push(JSON.parse(JSON.stringify(x))); }
+    const s = [ici.solde, autre.solde].filter(Boolean).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.solde = s.length ? JSON.parse(JSON.stringify(s[0])) : null;
+    return { data: res, bilan };
+  },
+  // fusion de deux rules : union des règles par id (ids portant le nom de l'appareil), tiers, historique, catalogue ; config : « ici » gagne, les vides sont complétés
+  fusionnerRegles(ici, autre) {
+    const cl = (v) => JSON.parse(JSON.stringify(v)); const vide = (v) => v === null || v === undefined || v === '';
+    const bilan = { regles_autre: 0, regles_reprises: 0, regles_doublons: 0, tiers_autre: 0, config_autre: 0, catalogue_autre: 0 };
+    const res = cl(ici); res.historique = res.historique || []; res.tiers = res.tiers || {};
+    const parId = new Map(res.rules.map(r => [r.id, r]));
+    for (const r of autre.rules || []) { const i = parId.get(r.id); if (!i) { res.rules.push(cl(r)); bilan.regles_autre++; continue; } if ((r.modifie || '') > (i.modifie || '')) { Object.assign(i, cl(r)); bilan.regles_reprises++; } }
+    const cleR = (r) => [r.match, r.pattern, r.sens].join('|'); const vuesR = new Map(); const garder = [];
+    for (const r of res.rules) {
+      if (r.source !== 'user') { garder.push(r); continue; }
+      const k = cleR(r), d = vuesR.get(k);
+      if (!d) { vuesR.set(k, r); garder.push(r); continue; }
+      const [g, p] = (r.modifie || '') > (d.modifie || '') ? [r, d] : [d, r];
+      if (g === r) { garder[garder.indexOf(d)] = r; vuesR.set(k, r); }
+      res.historique.push(Object.assign(cl(p), { remplacee_le: util.nowIso().slice(0, 10), remplacee_par: g.id })); bilan.regles_doublons++;
+    }
+    res.rules = garder;
+    const cleH = (h) => JSON.stringify(serial.sortDeep(h)); const hist = new Set(res.historique.map(cleH));
+    for (const h of autre.historique || []) if (!hist.has(cleH(h))) { res.historique.push(cl(h)); hist.add(cleH(h)); }
+    for (const [n, t] of Object.entries(autre.tiers || {})) if (!res.tiers[n]) { res.tiers[n] = cl(t); bilan.tiers_autre++; }
+    const ci = catalogue.conf(res), ca = Object.assign(catalogue.defaut(), autre.catalogue || {});
+    for (const a of ca.ajouts) if (!ci.ajouts.some(x => x[0] === a[0])) { ci.ajouts.push(cl(a)); bilan.catalogue_autre++; }
+    for (const k of ['libelles', 'emojis', 'couleurs']) for (const [code, v] of Object.entries(ca[k] || {})) if (vide(ci[k][code])) ci[k][code] = v;
+    for (const m of ca.masques) if (!ci.masques.includes(m)) ci.masques.push(m);
+    for (const f of ca.fusions) if (!ci.fusions.some(x => x.de === f.de && x.vers === f.vers && x.date === f.date)) ci.fusions.push(cl(f));
+    if (!ci.ordre.length && ca.ordre && ca.ordre.length) ci.ordre = cl(ca.ordre);
+    catalogue.appliquer(res);
+    const cc = res.config, ca2 = autre.config || {};
+    if (vide(cc.titulaire) && !vide(ca2.titulaire)) { cc.titulaire = ca2.titulaire; bilan.config_autre++; }
+    cc.compteurs = cc.compteurs || {};
+    for (const [k, v] of Object.entries(ca2.compteurs || {})) cc.compteurs[k] = Math.max(cc.compteurs[k] || 0, v);
+    return { rules: res, bilan };
+  },
+  nouvelId(rules, machine) {
+    const m = (machine || 'X').replace(/[^A-Z0-9]/gi, '').toUpperCase() || 'X';
+    const n = (rules.config.compteurs[m] || 0) + 1; rules.config.compteurs[m] = n;
+    return `r-${m}-${String(n).padStart(4, '0')}`;
+  }
+};
+
+// ---------------------------------------------------------- moteur de classement
+const engine = {
+  rx(pattern) { try { return new RegExp(pattern, 'i'); } catch { return null; } },
+  sens(op) { return op.montant < 0 ? 'debit' : 'credit'; },
+  regleMatche(r, op) {
+    if (r.actif === false) return false;
+    if (r.sens && r.sens !== 'any' && r.sens !== engine.sens(op)) return false;
+    if (r.match === 'exact') return r.pattern === op.cle;
+    if (r.match === 'tiers') return !!op.tiers && op.tiers === r.pattern;
+    const rx = engine.rx(r.pattern); return !!rx && rx.test(op.cle);
+  },
+  appliquer(op, res) {
+    op.categorie = res.categorie ?? null;
+    op.statut = res.statut || 'auto';
+    op.regle_id = res.regle_id || null;
+    op.propositions = res.propositions || (res.categorie ? [res.categorie] : []);
+    op.note = res.note || null;
+  },
+  // ordre : 1 règle apprise exacte / tiers, 2 règle apprise famille (regex), 3 titulaire et paye, 4 amorçage, 5 tiers connu, 6 proposition par défaut
+  resoudre(op, ctx) {
+    const { rules } = ctx; const sens = engine.sens(op);
+    const user = rules.rules.filter(r => r.source === 'user' && r.actif !== false);
+    for (const ordre of [['exact', 'tiers'], ['regex']]) {
+      const r = user.find(r => ordre.includes(r.match) && engine.regleMatche(r, op));
+      if (r) { r.hits++; return { categorie: r.categorie, statut: 'auto', regle_id: r.id }; }
+    }
+    // virement reçu de la titulaire elle-même (autre banque, livret) → épargne, hors revenus
+    if (op.type === 'virement_recu' && op.tiers && ctx.titulaire && norm.memePersonne(op.tiers, ctx.titulaire)) return { categorie: 'EPG', statut: 'auto', regle_id: 'titulaire' };
+    if (sens === 'credit' && PAYE_RX.test(norm.stripAccents(op.libelle))) return { categorie: 'REV', statut: 'auto', regle_id: 'paye' };
+    const opAvoir = op.type === 'avoir' ? Object.assign({}, op, { montant: -Math.abs(op.montant) }) : op;
+    for (const r of rules.rules.filter(r => r.source === 'seed' && r.actif !== false)) {
+      if (!engine.regleMatche(r, opAvoir)) continue;
+      r.hits++;
+      const o = r.options || {};
+      if (o.a_valider) return { categorie: null, statut: 'a_valider', propositions: o.propositions || [r.categorie], regle_id: r.id };
+      return { categorie: r.categorie, statut: 'auto', regle_id: r.id };
+    }
+    // virement nominatif : nom connu → sa catégorie ; sinon proposition selon le sens
+    if (op.tiers && /^virement_/.test(op.type)) {
+      const t = rules.tiers[op.tiers];
+      if (t && t.categorie) return { categorie: t.categorie, statut: 'auto', regle_id: 'tiers' };
+      if (sens === 'debit') return { categorie: null, statut: 'a_valider', propositions: op.motif && RESTO_MOTIF_RX.test(op.motif) ? ['ALIM.RESTO', 'LOIS.CADEAUX', 'HB'] : ['LOIS.CADEAUX', 'HB', 'ALIM.RESTO'], note: 'tiers' };
+      return { categorie: null, statut: 'a_valider', propositions: ['HB', 'REV'], note: 'tiers' };
+    }
+    if (op.type === 'avoir') return { categorie: null, statut: 'a_valider', propositions: [] };
+    return { categorie: null, statut: 'a_valider', propositions: sens === 'credit' ? ['REV', 'HB'] : [CAT_DEFAUT] };
+  },
+  // confiance : une proposition déjà confirmée 3 fois pour le même marchand et la même catégorie passe en auto sans redemander
+  SEUIL_CONFIANCE: 3,
+  confiance(data) { const c = {}; for (const o of data.operations) if (o.statut === 'valide' && o.categorie) { const k = o.cle + '|' + o.categorie; c[k] = (c[k] || 0) + 1; } return c; },
+  confirmer(op, res, ctx) {
+    if (res.statut !== 'a_valider' || !res.propositions || !res.propositions[0]) return res;
+    const cat = res.propositions[0];
+    if ((ctx.confiance[op.cle + '|' + cat] || 0) < engine.SEUIL_CONFIANCE) return res;
+    return { categorie: cat, statut: 'auto', regle_id: 'confiance' };
+  },
+  run(data, rules) {
+    for (const r of rules.rules) r.hits = 0;
+    const ctx = { rules, titulaire: rules.config.titulaire && norm.mots(rules.config.titulaire).length >= 2 ? rules.config.titulaire : null, confiance: engine.confiance(data) };
+    for (const op of data.operations) {
+      if (op.statut === 'valide') { if (op.regle_id && op.regle_id.startsWith('r-')) { const r = rules.rules.find(x => x.id === op.regle_id); if (r) r.hits++; } continue; }
+      if (!op.categorie || !CAT[op.categorie] || op.statut !== 'valide') engine.appliquer(op, engine.confirmer(op, engine.resoudre(op, ctx), ctx));
+    }
+    return data.operations.filter(o => o.statut === 'a_valider').length;
+  },
+  // devine le prénom + nom de la titulaire : tiers le plus fréquent des virements reçus ET émis (quelqu'un qui s'envoie de l'argent)
+  devinerTitulaire(data) {
+    const cpt = {};
+    for (const o of data.operations) { if (!o.tiers || !/^virement_/.test(o.type)) continue; const k = norm.mots(o.tiers).sort().join(' '); (cpt[k] = cpt[k] || { nom: o.tiers, n: 0, sens: new Set() }); cpt[k].n++; cpt[k].sens.add(Math.sign(o.montant)); }
+    const l = Object.values(cpt).filter(c => c.sens.size === 2 && c.n >= 2).sort((a, b) => b.n - a.n);
+    return l.length ? l[0].nom : null;
+  },
+  // boîte : lignes à classer groupées par marchand + proposition, les plus nombreuses d'abord
+  groupes(data) {
+    const m = new Map();
+    for (const o of data.operations) {
+      if (o.statut !== 'a_valider') continue;
+      const k = (o.tiers || o.cle) + '|' + (o.propositions[0] || '');
+      if (!m.has(k)) m.set(k, { cle: k, nom: o.tiers ? norm.nomLisible({ cle: o.tiers }) : norm.nomLisible(o), tiers: o.tiers || null, proposition: o.propositions[0] || null, propositions: o.propositions, ops: [] });
+      m.get(k).ops.push(o);
+    }
+    return [...m.values()].map(g => { g.ops.sort((a, b) => b.date.localeCompare(a.date)); g.total = util.r2(g.ops.reduce((s, o) => s + o.montant, 0)); g.ceMois = g.ops.filter(o => util.mois(o.date) === util.mois(g.ops[0].date)).length; return g; }).sort((a, b) => b.ops.length - a.ops.length || b.ops[0].date.localeCompare(a.ops[0].date));
+  },
+  // correction manuelle : la ligne est classée, et une règle est apprise (exacte sur le marchand, ou sur le nom du tiers pour un virement)
+  corriger(data, rules, machine, op, choix) {
+    op.categorie = choix.categorie; op.statut = 'valide'; op.propositions = []; op.note = null;
+    if (choix.creerRegle === false) { op.regle_id = null; return null; }
+    const regle = { id: modele.nouvelId(rules, machine), match: 'exact', pattern: op.cle, sens: engine.sens(op), categorie: choix.categorie, source: 'user', actif: true, hits: 0, cree: util.nowIso().slice(0, 10), modifie: util.nowIso().slice(0, 10) };
+    if (op.tiers && /^virement_/.test(op.type)) { regle.match = 'tiers'; regle.pattern = op.tiers; regle.sens = 'any'; rules.tiers[op.tiers] = { categorie: choix.categorie }; }
+    else if (choix.etendre === 'famille') { regle.match = 'regex'; regle.pattern = '^' + engine.motPrincipal(op.cle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    const idx = rules.rules.findIndex(r => r.source === 'user' && r.match === regle.match && r.pattern === regle.pattern && r.sens === regle.sens);
+    if (idx >= 0) {
+      const anc = rules.rules[idx];
+      if (anc.categorie === regle.categorie) { anc.actif = true; op.regle_id = anc.id; return anc; }
+      rules.historique.push(Object.assign({}, anc, { remplacee_le: util.nowIso().slice(0, 10), remplacee_par: regle.id }));
+      rules.rules.splice(idx, 1);
+    }
+    rules.rules.push(regle); op.regle_id = regle.id;
+    return regle;
+  },
+  motPrincipal(cle) { return (cle.split(' ')[0] || cle).replace(/[^A-Z0-9'&-]/g, '') || cle; },
+  aClasser(data) { return data.operations.filter(o => o.statut === 'a_valider'); }
+};
+
+// ---------------------------------------------------------- stats du mois
+const stats = {
+  mois(data) { return [...new Set(data.operations.map(o => util.mois(o.date)))].sort(); },
+  dernierMois(data) { const m = stats.mois(data); return m.length ? m[m.length - 1] : util.nowIso().slice(0, 7); },
+  estDepense(o) { return o.montant < 0 && !catalogue.interne(o.categorie) && (o.statut !== 'a_valider' || true); },
+  // revenus = crédits non internes ; dépenses = débits non internes (les avoirs réduisent la dépense) ; reste = revenus − dépenses
+  bilan(data, mois) {
+    const ops = data.operations.filter(o => util.mois(o.date) === mois);
+    let revenus = 0, depenses = 0; const parCat = {};
+    for (const o of ops) {
+      const code = o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT;
+      if (catalogue.interne(code)) continue;
+      if (code === 'REV' || (o.montant > 0 && o.type !== 'avoir' && code === CAT_DEFAUT && o.statut === 'a_valider')) { if (o.montant > 0) revenus += o.montant; else depenses += -o.montant; continue; }
+      depenses += -o.montant;
+      parCat[code] = parCat[code] || { code, montant: 0, n: 0 };
+      parCat[code].montant += -o.montant; parCat[code].n++;
+    }
+    const cats = Object.values(parCat).map(c => ({ code: c.code, montant: util.r2(c.montant), n: c.n })).filter(c => c.montant > 0).sort((a, b) => b.montant - a.montant);
+    revenus = util.r2(revenus); depenses = util.r2(depenses);
+    return { mois, revenus, depenses, reste: util.r2(revenus - depenses), epargne: util.r2(ops.filter(o => o.categorie === 'EPG' && o.montant < 0).reduce((s, o) => s - o.montant, 0)), parCat: cats, aClasser: ops.filter(o => o.statut === 'a_valider').length };
+  },
+  // camembert : au plus `max` parts, le reste regroupé dans « Autres »
+  camembert(bilan, max) {
+    const n = max || 8; const l = bilan.parCat;
+    if (l.length <= n) return l.map(c => ({ code: c.code, montant: c.montant, codes: [c.code] }));
+    const tete = l.slice(0, n - 1).map(c => ({ code: c.code, montant: c.montant, codes: [c.code] }));
+    const reste = l.slice(n - 1);
+    tete.push({ code: 'AUTRES', montant: util.r2(reste.reduce((s, c) => s + c.montant, 0)), codes: reste.map(c => c.code) });
+    return tete;
+  },
+  lignes(data, mois, codes) { return data.operations.filter(o => util.mois(o.date) === mois && codes.includes(o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT) && o.montant < 0).sort((a, b) => b.date.localeCompare(a.date)); },
+  parJour(data, mois) {
+    const ops = data.operations.filter(o => util.mois(o.date) === mois).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+    const jours = []; let cur = null;
+    for (const o of ops) { if (!cur || cur.date !== o.date) { cur = { date: o.date, ops: [] }; jours.push(cur); } cur.ops.push(o); }
+    return jours;
+  }
+};
+
+// ---------------------------------------------------------- chiffrement (repris tel quel de budget-dash, enveloppe v1)
+const chiffre = {
+  VERSION: 1,
+  ITERATIONS: 600000,
+  get subtle() { const c = globalThis.crypto; if (!c || !c.subtle) throw chiffre.erreur('INDISPONIBLE', 'WebCrypto indisponible (ouvre la page en https:// ou file://, pas en http://)'); return c.subtle; },
+  erreur(code, message) { const e = new Error(message); e.code = code; return e; },
+  b64(u8) { let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); },
+  unb64(s) { if (typeof s !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(s)) throw chiffre.erreur('FORMAT', 'base64 invalide'); const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; },
+  alea(n) { const u = new Uint8Array(n); globalThis.crypto.getRandomValues(u); return u; },
+  sel() { return chiffre.b64(chiffre.alea(16)); },
+  async deriver(phrase, selB64, iterations) { return chiffre.importer(await chiffre.deriverBrute(phrase, selB64, iterations)); },
+  async deriverBrute(phrase, selB64, iterations) {
+    if (typeof phrase !== 'string' || !phrase.length) throw chiffre.erreur('PHRASE', 'phrase de passe vide');
+    const base = await chiffre.subtle.importKey('raw', new TextEncoder().encode(phrase.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
+    return new Uint8Array(await chiffre.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: chiffre.unb64(selB64), iterations: iterations || chiffre.ITERATIONS }, base, 256));
+  },
+  importer(brute) { return chiffre.subtle.importKey('raw', brute, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); },
+  verifierCode(code) { const c = String(code || '').trim(); if (!/^\d{4,8}$/.test(c)) throw chiffre.erreur('CODE', 'le code doit faire 4 à 8 chiffres'); return c; },
+  async proteger(brute, code) { return chiffre.sceller(chiffre.verifierCode(code), chiffre.b64(brute), { usage: 'cle' }); },
+  async liberer(env, code) {
+    let o; try { o = await chiffre.ouvrir(chiffre.verifierCode(code), env); } catch (e) { if (e.code === 'PHRASE') throw chiffre.erreur('CODE', 'code incorrect'); throw e; }
+    if (!o.aad || o.aad.usage !== 'cle') throw chiffre.erreur('FORMAT', 'enveloppe de clé invalide');
+    return chiffre.importer(chiffre.unb64(o.texte));
+  },
+  aadOctets(aad) { return new TextEncoder().encode(JSON.stringify(serial.sortDeep(aad || {}))); },
+  async chiffrer(cle, texte, aad, kdf) {
+    if (!kdf || !kdf.sel) throw chiffre.erreur('FORMAT', 'kdf.sel requis');
+    const nonce = chiffre.alea(12);
+    const ct = await chiffre.subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: chiffre.aadOctets(aad) }, cle, new TextEncoder().encode(texte));
+    return { v: chiffre.VERSION, kdf: { alg: 'PBKDF2-SHA-256', iter: kdf.iter || chiffre.ITERATIONS, sel: kdf.sel }, nonce: chiffre.b64(nonce), aad: serial.sortDeep(aad || {}), ct: chiffre.b64(new Uint8Array(ct)) };
+  },
+  async dechiffrer(cle, env) {
+    chiffre.verifierEnveloppe(env);
+    let clair;
+    try { clair = await chiffre.subtle.decrypt({ name: 'AES-GCM', iv: chiffre.unb64(env.nonce), additionalData: chiffre.aadOctets(env.aad) }, cle, chiffre.unb64(env.ct)); }
+    catch { throw chiffre.erreur('PHRASE', 'déchiffrement impossible : mauvaise phrase de passe, ou fichier altéré'); }
+    return { aad: env.aad, texte: new TextDecoder().decode(clair) };
+  },
+  verifierEnveloppe(env) {
+    if (!env || typeof env !== 'object' || env.v !== chiffre.VERSION) throw chiffre.erreur('FORMAT', `enveloppe inconnue (v=${env && env.v})`);
+    if (!env.kdf || env.kdf.alg !== 'PBKDF2-SHA-256' || !Number.isInteger(env.kdf.iter) || env.kdf.iter < 1 || typeof env.kdf.sel !== 'string') throw chiffre.erreur('FORMAT', 'paramètres de dérivation invalides');
+    if (typeof env.nonce !== 'string' || typeof env.ct !== 'string' || !env.aad || typeof env.aad !== 'object') throw chiffre.erreur('FORMAT', 'enveloppe incomplète');
+    if (chiffre.unb64(env.nonce).length !== 12) throw chiffre.erreur('FORMAT', 'nonce invalide');
+  },
+  async sceller(phrase, texte, aad) { const sel = chiffre.sel(); const cle = await chiffre.deriver(phrase, sel); return chiffre.chiffrer(cle, texte, aad, { sel }); },
+  async ouvrir(phrase, env) { chiffre.verifierEnveloppe(env); const cle = await chiffre.deriver(phrase, env.kdf.sel, env.kdf.iter); return chiffre.dechiffrer(cle, env); },
+  force(phrase) { const p = (phrase || '').trim(); if (!p) return 0; const mots = p.split(/\s+/).filter(Boolean).length; let s = 1; if (p.length >= 12) s++; if (p.length >= 20 || mots >= 4) s++; if (mots >= 5 && p.length >= 28) s++; return s; }
+};
+
+// ---------- coffre : rules + data emballés en un seul texte, chiffré d'un bloc → un commit atomique
+const coffre = {
+  SCHEMA: 2,
+  emballer(rules, data) { return serial.stringify({ coffre: coffre.SCHEMA, rules: modele.pourEcriture('rules', rules), data: modele.pourEcriture('data', data) }); },
+  deballer(texte) {
+    let o; try { o = JSON.parse(texte); } catch (e) { throw chiffre.erreur('FORMAT', 'contenu déchiffré illisible (' + e.message + ')'); }
+    if (!o || o.coffre !== coffre.SCHEMA) throw chiffre.erreur('FORMAT', `coffre ${o && o.coffre} inconnu (attendu ${coffre.SCHEMA})`);
+    for (const nom of ['rules', 'data']) { const err = modele.valider(nom, o[nom]); if (err) throw chiffre.erreur('FORMAT', err); }
+    return { rules: o.rules, data: o.data };
+  },
+  fusionner(ici, autre) { const r = modele.fusionnerRegles(ici.rules, autre.rules), d = modele.fusionner(ici.data, autre.data); return { rules: r.rules, data: d.data, bilan: Object.assign({}, r.bilan, d.bilan) }; }
+};
+
+// ---------- github : un fichier du dépôt par l'API REST Contents, contrôle de version par `sha` (repris de budget-dash)
+const github = {
+  API: 'https://api.github.com',
+  FICHIER: 'data/store.json.enc',
+  erreur(code, message, status) { const e = new Error(message); e.code = code; if (status) e.status = status; return e; },
+  entetes(token) { return { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; },
+  url(cfg, chemin) { return `${github.API}/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}${chemin ? '/' + chemin : ''}`; },
+  utf8b64(texte) { return chiffre.b64(new TextEncoder().encode(texte)); },
+  b64utf8(b64) { return new TextDecoder().decode(chiffre.unb64(String(b64).replace(/\s+/g, ''))); },
+  lireDepot(s) { const m = String(s || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/\/+$/, '').match(/^([\w.-]+)\/([\w.-]+)$/); return m ? { owner: m[1], repo: m[2] } : null; },
+  async requete(cfg, methode, chemin, corps) {
+    const f = cfg.fetch || globalThis.fetch; let rep;
+    try { rep = await f(github.url(cfg, chemin), { method: methode, headers: Object.assign(github.entetes(cfg.token), corps ? { 'Content-Type': 'application/json' } : {}), body: corps ? JSON.stringify(corps) : undefined }); }
+    catch (e) { throw github.erreur('RESEAU', 'GitHub injoignable (' + (e && e.message || 'réseau') + ')'); }
+    if (rep.status === 404) return { status: 404, json: null };
+    if (rep.status === 401 || rep.status === 403) throw github.erreur('TOKEN', `GitHub refuse le token (${rep.status}) : vérifie qu'il est valide, limité à ce dépôt, avec « Contents » en lecture et écriture`, rep.status);
+    const json = await rep.json().catch(() => null);
+    if (rep.status === 409 || rep.status === 422) throw github.erreur('CONFLIT', 'le fichier a changé sur GitHub depuis la dernière lecture', rep.status);
+    if (!rep.ok) throw github.erreur('HTTP', `GitHub : ${rep.status} ${json && json.message || ''}`.trim(), rep.status);
+    return { status: rep.status, json };
+  },
+  async lire(cfg) {
+    const r = await github.requete(cfg, 'GET', `contents/${github.FICHIER}?ref=${encodeURIComponent(cfg.branche || 'main')}`);
+    if (r.status === 404) return { absent: true };
+    const j = r.json;
+    if (j.content && j.encoding === 'base64') return { sha: j.sha, texte: github.b64utf8(j.content) };
+    const b = await github.requete(cfg, 'GET', `git/blobs/${j.sha}`);
+    return { sha: j.sha, texte: github.b64utf8(b.json.content) };
+  },
+  async ecrire(cfg, texte, sha, message) {
+    const corps = { message, content: github.utf8b64(texte), branch: cfg.branche || 'main' };
+    if (sha) corps.sha = sha;
+    const r = await github.requete(cfg, 'PUT', `contents/${github.FICHIER}`, corps);
+    return r.json.content.sha;
+  },
+  async verifierDepot(cfg) {
+    const r = await github.requete(cfg, 'GET', '');
+    if (r.status === 404) throw github.erreur('DEPOT', `dépôt ${cfg.owner}/${cfg.repo} introuvable avec ce token (dépôt inexistant, ou token non autorisé sur ce dépôt)`, 404);
+    return { nom: r.json.full_name, prive: !!r.json.private };
+  }
+};
+
+// ---------------------------------------------------------- tests (CSV fictif, aucun montant ni libellé réel)
+const tests = {
+  // export LBP fictif : préambule 5 lignes + vide + en-tête 3 colonnes. Texte JS → octets windows-1252 par les tests.
+  csvFictif() {
+    return [
+      'Numéro Compte;0000000000',
+      'Type de compte;Compte Courant',
+      'Compte tenu en;euros',
+      'Date;30/10/2026',
+      'Solde (EUROS);1234,56',
+      '',
+      'Date;Libellé;Montant(EUROS)',
+      '28/10/2026;"ACHAT CB INTERMARCHE 27.10.26 CARTE NUMERO 123";-42,10',
+      '28/10/2026;"ACHAT CB INTERMARCHE 27.10.26 CARTE NUMERO 123";-42,10',
+      '27/10/2026;"ACHAT CB UNIQLO EUROPE L 26.10.26 CARTE NUMERO 123";-35,00',
+      '26/10/2026;"CREDIT CARTE BANCAIRE UNIQLO EUROPE L 25.10.26 FR CARTE NUMERO 123";35,00',
+      '25/10/2026;"PRELEVEMENT DE BOUYGUES TELECOM REF : 1234567 MANDAT 98765";-19,99',
+      '25/10/2026;"PRELEVEMENT DE BOUYGUES TELECOM REF : 7654321 MANDAT 98765";-19,99',
+      '24/10/2026;"VIREMENT DE SOCIETE FICTIVE SA PAYE DU MOIS DE OCTOBRE REFERENCE 42";1800,00',
+      '23/10/2026;"VIREMENT INSTANTANE WERO A PAUL MARTIN resto de samedi";-25,00',
+      '22/10/2026;"VIREMENT DE M. ANNE DUPONT DEFAULT REFERENCE 7";200,00',
+      '21/10/2026;"ACHAT CB SPOTIFY 20.10.26 CARTE NUMERO 123";-10,99',
+      '20/10/2026;"ACHAT CB NP TRAITEUR BA 19.10.26 CARTE NUMERO 123";-12,50',
+      '19/10/2026;"RETRAIT DAB 18.10.26 CARTE NUMERO 123";-40,00',
+      '18/10/2026;"ACHAT CB BOUTIQUE INCONNUE 17.10.26 CARTE NUMERO 123";-9,00',
+      '17/10/2026;"COTISATION TRIMESTRIELLE";-6,50',
+      'pas une date;"LIGNE CASSEE";-1,00',
+      '16/10/2026;"MONTANT ILLISIBLE";abc',
+      '15/09/2026;"ACHAT CB INTERMARCHE 14.09.26 CARTE NUMERO 123";-30,00'
+    ].join('\r\n') + '\r\n';
+  },
+  octets1252(texte) { const u = new Uint8Array(texte.length); for (let i = 0; i < texte.length; i++) { const c = texte.charCodeAt(i); u[i] = c < 256 ? c : 63; } return u; },
+  jeu(texte) { const lu = banques.lire(tests.octets1252(texte === undefined ? tests.csvFictif() : texte), 't.csv'); const d = modele.dataDefaut('T'); const r = modele.rulesDefaut('T'); modele.importer(d, lu); engine.run(d, r); return { d, r, lu, par: (frag) => d.operations.find(o => o.libelle.includes(frag)) }; },
+  cas() {
+    const J = tests.jeu;
+    return [
+      ['lbp : décodage windows-1252 (é lisible), préambule sauté, en-tête trouvée, solde et date d\'export lus', () => { const { lu } = J(); return lu.banque === 'lbp' && lu.solde === 1234.56 && lu.dateExport === '2026-10-30' && lu.lignes.every(l => !/Libell/.test(l.libelle)) && lu.lues === 15; }],
+      ['lbp : un fichier UTF-8 par erreur est redécodé (garde-fou NumÃ©ro)', () => { const u = new TextEncoder().encode(tests.csvFictif()); const lu = banques.lire(u, 'u.csv'); return lu.lues === 15 && lu.solde === 1234.56; }],
+      ['lbp : lignes cassées rejetées et listées, le reste importé', () => { const { lu } = J(); return lu.erreurs.length === 2 && /date/.test(lu.erreurs[0]) && /montant/.test(lu.erreurs[1]); }],
+      ['lbp : fichier d\'une autre forme → refusé avec un message lisible', () => { const lu = banques.lire(tests.octets1252('a;b;c\n1;2;3\n'), 'x.csv'); return lu.banque === null && lu.lues === 0 && /Banque Postale/.test(lu.erreurs[0]); }],
+      ['id : deux lignes identiques (même jour, même libellé, même montant) = deux opérations grâce au rang ; réimport = 0 nouvelle', () => { const { d, lu } = J(); const inter = d.operations.filter(o => o.cle === 'INTERMARCHE' && o.date === '2026-10-28'); const again = modele.importer(d, lu); return inter.length === 2 && inter[0].id !== inter[1].id && again.inserees.length === 0 && again.doublons.length === 15 && d.operations.length === 15; }],
+      ['clé marchand : ACHAT CB → nom tronqué sans date ni carte ; avoir → même clé ; prélèvement → créancier sans REF ; cotisation → premier mot', () => { const { par } = J(); return par('UNIQLO EUROPE L 26').cle === 'UNIQLO EUROPE L' && par('CREDIT CARTE').cle === 'UNIQLO EUROPE L' && par('CREDIT CARTE').type === 'avoir' && par('BOUYGUES TELECOM REF : 1234567').cle === 'BOUYGUES TELECOM' && par('BOUYGUES TELECOM REF : 7654321').cle === 'BOUYGUES TELECOM' && par('COTISATION').cle === 'COTISATION' && par('RETRAIT').type === 'especes'; }],
+      ['tiers : VIREMENT DE → nom en majuscules, civilité ignorée, arrêt sur DEFAULT/REFERENCE ; Wero → nom + motif en minuscules', () => { const { par } = J(); const a = par('ANNE DUPONT'), w = par('WERO'), p = par('PAYE DU MOIS'); return a.tiers === 'ANNE DUPONT' && a.type === 'virement_recu' && w.tiers === 'PAUL MARTIN' && w.motif === 'resto de samedi' && w.type === 'virement_emis' && p.tiers === 'SOCIETE FICTIVE SA PAYE' && a.motif === null; }],
+      ['seeds : courses, shopping, loyer & factures (préfixe), traiteur, cotisation → auto ; abonnement → à classer avec proposition ; inconnu → à classer', () => { const { par } = J(); return par('INTERMARCHE 27').categorie === 'ALIM.COURSES' && par('INTERMARCHE 27').statut === 'auto' && par('UNIQLO EUROPE L 26').categorie === 'LOIS.SHOPPING' && par('BOUYGUES TELECOM REF : 1234567').categorie === 'FIX' && par('TRAITEUR').categorie === 'ALIM.RESTO' && par('COTISATION').categorie === 'FIX' && par('SPOTIFY').statut === 'a_valider' && par('SPOTIFY').propositions[0] === 'ABO' && par('BOUTIQUE INCONNUE').statut === 'a_valider' && par('BOUTIQUE INCONNUE').propositions[0] === 'AUTRE'; }],
+      ['avoir : catégorie du marchand, montant positif ; réduit la dépense du mois', () => { const { par, d } = J(); const b = stats.bilan(d, '2026-10'); const shop = b.parCat.find(c => c.code === 'LOIS.SHOPPING'); return par('CREDIT CARTE').categorie === 'LOIS.SHOPPING' && par('CREDIT CARTE').montant === 35 && !shop; }],
+      ['paye : virement avec PAYE DU MOIS → Revenus en auto ; autre virement reçu → à classer (Hors budget / Revenus)', () => { const { par } = J(); return par('PAYE DU MOIS').categorie === 'REV' && par('PAYE DU MOIS').statut === 'auto' && par('ANNE DUPONT').statut === 'a_valider' && par('ANNE DUPONT').propositions.join() === 'HB,REV'; }],
+      ['titulaire : virement reçu de la titulaire (civilité, ordre des mots ignorés) → Épargne, hors revenus', () => { const j = J(); j.r.config.titulaire = 'Dupont Anne'; engine.run(j.d, j.r); const b = stats.bilan(j.d, '2026-10'); return j.par('ANNE DUPONT').categorie === 'EPG' && j.par('ANNE DUPONT').regle_id === 'titulaire' && b.revenus === 1800; }],
+      ['titulaire deviné : nom présent dans les deux sens de virement', () => { const t = tests.csvFictif() + '14/10/2026;"VIREMENT A ANNE DUPONT livret";-50,00\r\n'; const j = J(t); return engine.devinerTitulaire(j.d) === 'ANNE DUPONT'; }],
+      ['wero vers un particulier : motif « resto » → Restos proposé en tête ; sinon Cadeaux', () => { const t = tests.csvFictif() + '13/10/2026;"VIREMENT INSTANTANE WERO A JULIE BERNARD anniversaire";-30,00\r\n'; const { par } = J(t); return par('PAUL MARTIN').propositions[0] === 'ALIM.RESTO' && par('JULIE BERNARD').propositions[0] === 'LOIS.CADEAUX'; }],
+      ['correction : classer une ligne apprend une règle exacte sur le marchand ; les autres lignes du même marchand suivent', () => { const j = J(); const o = j.par('BOUTIQUE INCONNUE'); const r = engine.corriger(j.d, j.r, 'T', o, { categorie: 'LOIS.SHOPPING' }); const t = tests.csvFictif() + '12/10/2026;"ACHAT CB BOUTIQUE INCONNUE 11.10.26 CARTE NUMERO 123";-4,00\r\n'; modele.importer(j.d, banques.lire(tests.octets1252(t), 'b.csv')); engine.run(j.d, j.r); const autre = j.d.operations.find(x => x.libelle.includes('11.10.26')); return r.match === 'exact' && r.pattern === 'BOUTIQUE INCONNUE' && o.statut === 'valide' && autre.categorie === 'LOIS.SHOPPING' && autre.regle_id === r.id; }],
+      ['correction d\'un virement : règle sur le nom du tiers, dans les deux sens', () => { const j = J(); const o = j.par('PAUL MARTIN'); const r = engine.corriger(j.d, j.r, 'T', o, { categorie: 'ALIM.RESTO' }); const t = tests.csvFictif() + '11/10/2026;"VIREMENT DE PAUL MARTIN REFERENCE 9";25,00\r\n'; modele.importer(j.d, banques.lire(tests.octets1252(t), 'c.csv')); engine.run(j.d, j.r); const recu = j.d.operations.find(x => x.libelle.includes('VIREMENT DE PAUL MARTIN')); return r.match === 'tiers' && r.pattern === 'PAUL MARTIN' && recu.categorie === 'ALIM.RESTO' && j.r.tiers['PAUL MARTIN'].categorie === 'ALIM.RESTO'; }],
+      ['correction « famille » : règle en préfixe sur le premier mot', () => { const j = J(); const r = engine.corriger(j.d, j.r, 'T', j.par('NP TRAITEUR'), { categorie: 'ALIM.RESTO', etendre: 'famille' }); return r.match === 'regex' && r.pattern === '^NP'; }],
+      ['correction qui change d\'avis : l\'ancienne règle part dans l\'historique', () => { const j = J(); const o = j.par('BOUTIQUE INCONNUE'); engine.corriger(j.d, j.r, 'T', o, { categorie: 'LOIS.SHOPPING' }); const r2 = engine.corriger(j.d, j.r, 'T', o, { categorie: 'LOIS.CADEAUX' }); return j.r.rules.filter(r => r.source === 'user').length === 1 && j.r.historique.length === 1 && j.r.historique[0].remplacee_par === r2.id; }],
+      ['confiance : une proposition confirmée 3 fois (sans règle) passe en auto ensuite, pas avant', () => { const L = (d) => `${d};"ACHAT CB SPOTIFY 01.10.26 CARTE NUMERO 123";-10,99`; const t = tests.csvFictif().split('\r\n').slice(0, 7).concat([L('01/07/2026'), L('01/08/2026'), L('01/09/2026'), L('01/10/2026')]).join('\r\n'); const j = J(t); const ops = j.d.operations.slice().sort((a, b) => a.date.localeCompare(b.date)); const ok0 = ops.every(o => o.statut === 'a_valider'); for (const o of ops.slice(0, 2)) engine.corriger(j.d, j.r, 'T', o, { categorie: 'ABO', creerRegle: false }); engine.run(j.d, j.r); const ok1 = ops[2].statut === 'a_valider'; engine.corriger(j.d, j.r, 'T', ops[2], { categorie: 'ABO', creerRegle: false }); engine.run(j.d, j.r); return ok0 && ok1 && ops[3].statut === 'auto' && ops[3].regle_id === 'confiance'; }],
+      ['boîte : groupes par marchand + proposition, les plus nombreux d\'abord, compte du mois', () => { const { d } = J(); const g = engine.groupes(d); return g.length >= 3 && g[0].ops.length >= g[1].ops.length && g.every(x => x.nom && x.ops.length) && g.find(x => x.nom === 'Spotify').ceMois === 1; }],
+      ['bilan du mois : revenus, dépenses, reste, épargne ; internes exclus ; par catégorie trié', () => { const j = J(); j.r.config.titulaire = 'Anne Dupont'; engine.run(j.d, j.r); const b = stats.bilan(j.d, '2026-10'); const dep = 42.1 * 2 + 35 - 35 + 19.99 * 2 + 25 + 10.99 + 12.5 + 40 + 9 + 6.5; return b.revenus === 1800 && b.depenses === util.r2(dep) && b.reste === util.r2(1800 - dep) && b.parCat.every((c, i) => c.montant > 0 && (!i || c.montant <= b.parCat[i - 1].montant)) && b.parCat.find(c => c.code === 'ALIM.COURSES').montant === 84.2 && !b.parCat.some(c => c.code === 'EPG'); }],
+      ['camembert : au-delà de 8 parts, le reste est regroupé dans « Autres » ; sommes conservées', () => { const b = { parCat: Array.from({ length: 11 }, (_, i) => ({ code: 'C' + i, montant: 100 - i, n: 1 })) }; const c = stats.camembert(b, 8); const tot = b.parCat.reduce((s, x) => s + x.montant, 0); return c.length === 8 && c[7].code === 'AUTRES' && c[7].codes.length === 4 && util.r2(c.reduce((s, x) => s + x.montant, 0)) === tot && stats.camembert({ parCat: b.parCat.slice(0, 8) }, 8).length === 8; }],
+      ['opérations par jour : mois demandé, du plus récent au plus ancien', () => { const { d } = J(); const j = stats.parJour(d, '2026-10'); return j[0].date === '2026-10-28' && j[0].ops.length === 2 && j[j.length - 1].date === '2026-10-17' && stats.mois(d).join() === '2026-09,2026-10'; }],
+      ['catalogue : ajouter (nom libre → code unique), renommer, emoji/couleur, masquer, ordre ; codes livrés jamais supprimés', () => { const r = modele.rulesDefaut('T'); const c = catalogue.ajouter(r, 'Chat & véto', '🐱', '#123456'); const c2 = catalogue.ajouter(r, 'Chat & véto', '🐱', '#123456'); catalogue.renommer(r, 'ALIM.COURSES', 'Supermarché'); catalogue.styler(r, 'ALIM.COURSES', '🥕', '#654321'); catalogue.masquer(r, 'LOIS.CADEAUX', true); catalogue.deplacer(r, 'SANTE', -1); const ok = c === 'CHAT-VETO' && c2 === 'CHAT-VETO-2' && CAT[c].libelle === 'Chat & véto' && CAT['ALIM.COURSES'].libelle === 'Supermarché' && CAT['ALIM.COURSES'].emoji === '🥕' && CAT['ALIM.COURSES'].couleur === '#654321' && !catalogue.visibles().includes('LOIS.CADEAUX') && CATALOGUE.length === 15 && CATALOGUE_BASE.every(x => CAT[x[0]]); let ok2 = false; try { catalogue.masquer(r, 'AUTRE', true); } catch { ok2 = true; } catalogue.appliquer(modele.rulesDefaut('T')); return ok && ok2; }],
+      ['catalogue : fusion A → B déplace les lignes (classées comprises), les règles et les tiers ; A masqué ; journal daté', () => { const j = J(); engine.corriger(j.d, j.r, 'T', j.par('PAUL MARTIN'), { categorie: 'LOIS.CADEAUX' }); const n = catalogue.fusionner(j.r, j.d, 'LOIS.CADEAUX', 'LOIS.SORTIES'); const ok = n === 1 && j.par('PAUL MARTIN').categorie === 'LOIS.SORTIES' && j.r.rules.find(r => r.source === 'user').categorie === 'LOIS.SORTIES' && j.r.tiers['PAUL MARTIN'].categorie === 'LOIS.SORTIES' && CAT['LOIS.CADEAUX'].masque && j.r.catalogue.fusions[0].de === 'LOIS.CADEAUX' && /^\d{4}-\d\d-\d\d$/.test(j.r.catalogue.fusions[0].date); catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      ['migration : seeds manquantes ajoutées, jamais modifiées ; champs absents complétés', () => { const r = modele.rulesDefaut('T'); r.rules = r.rules.slice(0, 2); r.rules[0].categorie = 'MOB'; delete r.tiers; const d = modele.dataDefaut('T'); delete d.imports; const m = modele.migrer(r, d); return m && r.rules.length === SEEDS.length && r.rules[0].categorie === 'MOB' && r.tiers && Array.isArray(d.imports); }],
+      ['fusion de deux appareils : union des opérations, une ligne classée l\'emporte, règles réunies sans collision, solde le plus récent', () => { const a = tests.jeu(), b = tests.jeu(); const oa = a.par('BOUTIQUE INCONNUE'); engine.corriger(a.d, a.r, 'PC', oa, { categorie: 'LOIS.SHOPPING' }); engine.corriger(b.d, b.r, 'TEL', b.par('SPOTIFY'), { categorie: 'ABO' }); b.d.solde = { date: '2026-11-02', montant: 1 }; const t = tests.csvFictif() + '10/10/2026;"ACHAT CB NOUVEAU MARCHAND 09.10.26 CARTE NUMERO 123";-3,00\r\n'; modele.importer(b.d, banques.lire(tests.octets1252(t), 'x.csv')); const f = coffre.fusionner({ rules: a.r, data: a.d }, { rules: b.r, data: b.d }); return f.data.operations.length === 16 && f.data.operations.find(o => o.id === oa.id).statut === 'valide' && f.rules.rules.filter(r => r.source === 'user').length === 2 && f.data.solde.montant === 1 && f.bilan.autre_seul === 1 && f.bilan.regles_autre === 1; }],
+      ['écriture déterministe : même contenu → même texte ; opérations triées par date', () => { const { d, r } = J(); const a = coffre.emballer(r, d), b = coffre.emballer(JSON.parse(JSON.stringify(r)), JSON.parse(JSON.stringify(d))); const ops = JSON.parse(a).data.operations; return a === b && ops[0].date <= ops[ops.length - 1].date; }],
+      ['nom lisible : capitales initiales, tiers pour un virement', () => { const { par } = J(); return norm.nomLisible(par('UNIQLO EUROPE L 26')) === 'Uniqlo Europe L' && norm.nomLisible({ cle: 'NP TRAITEUR BA' }) === 'Np Traiteur Ba'; }],
+      ['rien de réel : le CSV de test ne contient ni numéro de compte conservé, ni prénom dans le code', () => { const { d } = J(); const js = JSON.stringify(d); return !js.includes('0000000000') && !js.includes('Numéro'); }]
+    ];
+  },
+  casGithub() {
+    const faux = (opts = {}) => {
+      const srv = { fichier: null, sha: 0, appels: [], gros: !!opts.gros, token: opts.token || 't' };
+      const rep = (status, json) => ({ status, ok: status >= 200 && status < 300, json: async () => json });
+      srv.fetch = async (url, init) => {
+        srv.appels.push(init.method + ' ' + url);
+        if (init.headers.Authorization !== 'Bearer ' + srv.token) return rep(401, { message: 'Bad credentials' });
+        const u = new URL(url);
+        if (u.pathname === '/repos/x/y') return rep(200, { full_name: 'x/y', private: true });
+        if (u.pathname.startsWith('/repos/x/y/git/blobs/')) return srv.fichier ? rep(200, { content: srv.fichier.content, encoding: 'base64' }) : rep(404, {});
+        if (u.pathname !== '/repos/x/y/contents/data/store.json.enc') return rep(404, { message: 'Not Found' });
+        if (init.method === 'GET') return srv.fichier ? rep(200, { sha: srv.fichier.sha, encoding: srv.gros ? 'none' : 'base64', content: srv.gros ? '' : srv.fichier.content }) : rep(404, { message: 'Not Found' });
+        const corps = JSON.parse(init.body);
+        if (srv.fichier && corps.sha !== srv.fichier.sha) return rep(409, { message: 'conflit' });
+        if (!srv.fichier && corps.sha) return rep(422, { message: 'Invalid request' });
+        srv.fichier = { sha: 'sha' + (++srv.sha), content: corps.content.replace(/(.{60})/g, '$1\n'), message: corps.message };
+        return rep(srv.fichier.sha === 'sha1' ? 201 : 200, { content: { sha: srv.fichier.sha } });
+      };
+      srv.cfg = { owner: 'x', repo: 'y', branche: 'main', token: 't', fetch: srv.fetch };
+      return srv;
+    };
+    const echoue = async (fn, code) => { try { await fn(); return false; } catch (e) { return e.code === code; } };
+    const phrase = 'trois petits mots';
+    return [
+      ['github : owner/repo accepté sous forme courte ou URL', async () => JSON.stringify(github.lireDepot('https://github.com/x/y.git')) === JSON.stringify({ owner: 'x', repo: 'y' }) && github.lireDepot('y') === null],
+      ['github : absent → création → relecture identique (UTF-8 préservé)', async () => { const s = faux(); const a = await github.lire(s.cfg); const sha = await github.ecrire(s.cfg, 'é—«»', null, 'm'); const r = await github.lire(s.cfg); return a.absent === true && sha === 'sha1' && r.texte === 'é—«»'; }],
+      ['github : sha périmé → CONFLIT ; mauvais token → TOKEN ; réseau coupé → RESEAU ; > 1 Mo → blob', async () => { const s = faux(); const s1 = await github.ecrire(s.cfg, 'a', null, 'm'); await github.ecrire(s.cfg, 'b', s1, 'm'); const g = faux({ gros: true }); await github.ecrire(g.cfg, 'gros', null, 'm'); return (await echoue(() => github.ecrire(s.cfg, 'c', s1, 'm'), 'CONFLIT')) && (await echoue(() => github.lire(Object.assign({}, s.cfg, { token: 'x' })), 'TOKEN')) && (await echoue(() => github.lire({ owner: 'a', repo: 'b', token: 't', fetch: async () => { throw new Error('Failed to fetch'); } }), 'RESEAU')) && (await github.lire(g.cfg)).texte === 'gros'; }],
+      ['coffre : rules + data emballés, chiffrés, poussés, relus, ouverts à l\'identique ; rien en clair sur GitHub', async () => { const s = faux(); const j = tests.jeu(); const env = await chiffre.sceller(phrase, coffre.emballer(j.r, j.d), { schema: coffre.SCHEMA, seq: 1, machine: 'TEL', ecrit_le: 'x' }); await github.ecrire(s.cfg, JSON.stringify(env), null, 'store seq=1'); const lu = await github.lire(s.cfg); const o = await chiffre.ouvrir(phrase, JSON.parse(lu.texte)); const c = coffre.deballer(o.texte); return o.aad.seq === 1 && c.data.operations.length === 15 && serial.stringify(c.data) === serial.stringify(modele.pourEcriture('data', j.d)) && !s.fichier.content.includes('INTERMARCHE'); }]
+    ];
+  },
+  async casAsync() {
+    const texte = 'Opérations : « Boulangerie du Port » −12,50 € — ' + 'x'.repeat(5000);
+    const aad = { schema: 2, seq: 7, machine: 'TEL', ecrit_le: '2026-10-30T00:00:00Z' };
+    const env = await chiffre.sceller('quatre mots suffisent ici', texte, aad);
+    const echoue = async (fn, code) => { try { await fn(); return false; } catch (e) { return e.code === code; } };
+    const clone = (e, f) => { const c = JSON.parse(JSON.stringify(e)); f(c); return c; };
+    return [
+      ['chiffre : enveloppe v1 complète', async () => env.v === 1 && env.kdf.iter === 600000 && chiffre.unb64(env.kdf.sel).length === 16 && chiffre.unb64(env.nonce).length === 12],
+      ['chiffre : aller-retour texte et aad', async () => { const r = await chiffre.ouvrir('quatre mots suffisent ici', env); return r.texte === texte && JSON.stringify(r.aad) === JSON.stringify(serial.sortDeep(aad)); }],
+      ['chiffre : le chiffré ne contient pas le clair', async () => !atob(env.ct).includes('Boulangerie')],
+      ['chiffre : mauvaise phrase ou aad modifié → PHRASE', async () => (await echoue(() => chiffre.ouvrir('quatre mots suffisent ic', env), 'PHRASE')) && (await echoue(() => chiffre.ouvrir('quatre mots suffisent ici', clone(env, c => { c.aad.seq = 99; })), 'PHRASE'))],
+      ['chiffre : clé protégée par un code à 4-8 chiffres, libérée par le bon code, refusée sinon', async () => { const sel = chiffre.sel(); const brute = await chiffre.deriverBrute('phrase test', sel); const p = await chiffre.proteger(brute, '1234'); const k = await chiffre.liberer(p, '1234'); return !!k && (await echoue(() => chiffre.liberer(p, '0000'), 'CODE')) && (await echoue(() => chiffre.proteger(brute, '12'), 'CODE')); }],
+      ...tests.casGithub()
+    ];
+  },
+  run() { return tests.cas().map(([nom, fn]) => { let ok = false, err = null; try { ok = !!fn(); } catch (e) { err = e.message; } return { nom, ok, err }; }); },
+  async runAsync() {
+    const sync = tests.run();
+    const cas = await tests.casAsync();
+    for (const [nom, fn] of cas) { let ok = false, err = null; try { ok = !!(await fn()); } catch (e) { err = e.message; } sync.push({ nom, ok, err }); }
+    return sync;
+  }
+};
+catalogue.appliquer(null);
+
+if (typeof module !== 'undefined') module.exports = { util, norm, lbp, banques, serial, modele, engine, stats, catalogue, chiffre, coffre, github, tests, CATALOGUE, CAT, CATALOGUE_BASE, SEEDS, COULEURS, CAT_DEFAUT };
+// ============================================================ UI (DOM)
+if (typeof document !== 'undefined') (function () {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+$('#version').textContent = 'v' + APP_VERSION;
+function toast(msg, kind) { const t = document.createElement('div'); t.className = 'toast ' + (kind || ''); t.textContent = msg; $('#toasts').appendChild(t); setTimeout(() => t.remove(), kind === 'bad' ? 8000 : 3500); }
+const eur = (n) => util.montantFr(n) + ' €';
+
+const idb = {
+  open() { return new Promise((res, rej) => { const r = indexedDB.open('mon-budget', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(k) { try { const db = await idb.open(); return await new Promise((res, rej) => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); }); } catch { return undefined; } },
+  async set(k, v) { try { const db = await idb.open(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); t.onsuccess = res; t.onerror = () => rej(t.error); }); } catch { } }
+};
+const UA = navigator.userAgent || '';
+let machine = localStorage.getItem('budget.machine') || (/iPhone|iPad/.test(UA) ? 'IPHONE' : /Android/.test(UA) ? 'ANDROID' : /Macintosh/.test(UA) ? 'MAC' : 'PC');
+const etat = { rules: null, data: null, charge: { rules: null, data: null }, dirty: { rules: false, data: false }, mois: null, moisAnalyse: null, detailCodes: null, ecran: 'accueil', plusTard: new Set() };
+function marquer(nom) { etat.dirty[nom] = true; }
+function toutRendre() { if (!etat.data) return; rendreAccueil(); rendreOps(); rendreAnalyse(); rendrePlus(); rendreSync(); }
+
+// ---------- stockage GitHub chiffré (repris de budget-dash) : envoi 3 s après la dernière modification, hors ligne, fusion en conflit
+const SYNC_DELAI = 3000, SYNC_RETENTATIVE = 30000;
+const backendGitHub = {
+  cfg: null, cle: null, kdf: null, sha: null, seq: 0, aad: null, cache: { rules: null, data: null }, timer: null, enAttente: false, enCours: false, sync: 'deconnecte', detail: '', onFusion: null,
+  pret() { return !!(this.cfg && this.cle); },
+  async lireTexte(nom) { return this.cache[nom] ? serial.stringify(this.cache[nom]) : null; },
+  async ecrireTexte(nom, texte) { this.cache[nom] = JSON.parse(texte); this.planifier(SYNC_DELAI); },
+  planifier(delai) { this.enAttente = true; this.majSync('attente'); clearTimeout(this.timer); this.timer = setTimeout(() => this.pousser(), delai); },
+  majSync(s, detail) { this.sync = s; this.detail = detail || ''; rendreSync(); },
+  async garderLocal(env, sha, attente) { await idb.set('enveloppe', env); await idb.set('enveloppe.sha', sha); await idb.set('enveloppe.attente', !!attente); },
+  async installer(env, sha) { const o = await chiffre.dechiffrer(this.cle, env); const c = coffre.deballer(o.texte); this.cache = c; this.sha = sha; this.seq = o.aad.seq || 0; this.aad = o.aad; this.kdf = { sel: env.kdf.sel, iter: env.kdf.iter }; },
+  async tirer() {
+    if (!this.cache.rules && (await idb.get('enveloppe.attente'))) { const env = await idb.get('enveloppe'); if (env) { await this.installer(env, (await idb.get('enveloppe.sha')) || null); this.planifier(SYNC_DELAI); return { change: true, aad: this.aad, cacheLocal: true }; } }
+    let lu;
+    try { lu = await github.lire(this.cfg); }
+    catch (e) {
+      if (e.code !== 'RESEAU') throw e;
+      this.majSync('horsligne');
+      if (this.cache.rules) return { change: false, horsligne: true };
+      const env = await idb.get('enveloppe'); if (!env) throw e;
+      await this.installer(env, (await idb.get('enveloppe.sha')) || null);
+      return { change: true, horsligne: true, cacheLocal: true, aad: this.aad };
+    }
+    if (lu.absent) { this.sha = null; if (this.sync === 'horsligne') this.majSync('synchronise'); return { absent: true }; }
+    if (lu.sha === this.sha) { if (this.sync === 'horsligne') this.majSync(this.enAttente ? 'attente' : 'synchronise'); return { change: false }; }
+    let env; try { env = JSON.parse(lu.texte); } catch { throw chiffre.erreur('FORMAT', 'fichier illisible sur GitHub'); }
+    await this.installer(env, lu.sha); await this.garderLocal(env, lu.sha);
+    if (!this.enAttente) this.majSync('synchronise');
+    return { change: true, aad: this.aad };
+  },
+  async pousser() {
+    if (!this.pret() || !this.cache.rules) return;
+    if (this.enCours) { this.planifier(SYNC_DELAI); return; }
+    clearTimeout(this.timer); this.enCours = true; this.enAttente = false;
+    let env, fusion = null;
+    try {
+      let seq = this.seq + 1;
+      const enveloppe = async () => chiffre.chiffrer(this.cle, coffre.emballer(this.cache.rules, this.cache.data), { schema: coffre.SCHEMA, seq, machine, ecrit_le: util.nowIso() }, this.kdf);
+      env = await enveloppe();
+      try { this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}`); }
+      catch (e) {
+        if (e.code !== 'CONFLIT') throw e;
+        const lu = await github.lire(this.cfg);
+        if (!lu.absent) { const o = await chiffre.dechiffrer(this.cle, JSON.parse(lu.texte)); const f = coffre.fusionner(this.cache, coffre.deballer(o.texte)); this.cache = { rules: f.rules, data: f.data }; fusion = { bilan: f.bilan, aad: o.aad }; seq = Math.max(seq, (o.aad.seq || 0) + 1); }
+        this.sha = lu.absent ? null : lu.sha;
+        env = await enveloppe();
+        this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}${fusion ? ' (fusion)' : ''}`);
+      }
+      this.seq = seq; this.aad = env.aad;
+      await this.garderLocal(env, this.sha);
+      if (fusion && this.onFusion) await this.onFusion(fusion);
+      this.majSync(this.enAttente ? 'attente' : 'synchronise');
+    } catch (e) {
+      this.enAttente = true;
+      if (e.code === 'RESEAU') { if (env) await this.garderLocal(env, this.sha, true); this.majSync('horsligne'); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); }
+      else { this.majSync('erreur', e.message); toast('Impossible d\'enregistrer en ligne : ' + e.message, 'bad'); }
+    } finally { this.enCours = false; }
+  },
+  async envoyerMaintenant() { if (this.enAttente && !this.enCours) { clearTimeout(this.timer); await this.pousser(); } },
+  async changerPhrase(phrase, code) { const sel = chiffre.sel(); const brute = await chiffre.deriverBrute(phrase, sel); this.cle = await chiffre.importer(brute); this.kdf = { sel, iter: chiffre.ITERATIONS }; await memoriserCle(code ? brute : null, code); this.enAttente = true; await this.pousser(); }
+};
+const SYNC_LIBELLES = { deconnecte: ['', ''], synchronise: ['enregistré', 'ok'], attente: ['enregistrement…', 'warn'], horsligne: ['hors ligne', 'warn'], erreur: ['problème', 'bad'] };
+function rendreSync() {
+  const [txt, cls] = SYNC_LIBELLES[backendGitHub.sync] || SYNC_LIBELLES.deconnecte;
+  const b = $('#badge-sync'); b.textContent = txt; b.className = 'badge ' + cls; b.title = backendGitHub.detail || '';
+  const a = backendGitHub.aad; $('#reg-sync').textContent = a ? `Dernier enregistrement : ${fmtDate(a.ecrit_le)} (${a.machine || '?'}).` : 'Pas encore enregistré.';
+}
+function fmtDate(iso) { if (!iso) return '?'; const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); }
+
+const store = {
+  async lire(nom) { const text = await backendGitHub.lireTexte(nom); if (text === null) return { absent: true }; let obj; try { obj = JSON.parse(text); } catch (e) { return { erreur: `${nom} : JSON invalide (${e.message})` }; } const err = modele.valider(nom, obj); if (err) return { erreur: err }; return { obj }; },
+  async ecrire(nom, obj) { await backendGitHub.ecrireTexte(nom, serial.stringify(modele.pourEcriture(nom, obj))); },
+  async charger() {
+    for (const nom of ['rules', 'data']) {
+      const r = await store.lire(nom);
+      if (r.erreur) { toast(r.erreur, 'bad'); return false; }
+      if (r.absent) { etat[nom] = nom === 'rules' ? modele.rulesDefaut(machine) : modele.dataDefaut(machine); await store.ecrire(nom, etat[nom]); }
+      else etat[nom] = r.obj;
+      etat.charge[nom] = etat[nom].meta.ecrit_le; etat.dirty[nom] = false;
+    }
+    if (modele.migrer(etat.rules, etat.data)) { marquer('rules'); marquer('data'); }
+    recategoriser();
+    if (!etat.mois) etat.mois = stats.dernierMois(etat.data);
+    if (!etat.moisAnalyse) etat.moisAnalyse = etat.mois;
+    toutRendre();
+    if (etat.dirty.rules || etat.dirty.data) await store.enregistrer();
+    return true;
+  },
+  async enregistrer() {
+    if (!backendGitHub.pret()) return false;
+    for (const nom of ['rules', 'data']) { if (!etat.dirty[nom]) continue; etat[nom].meta = modele.meta(machine); await store.ecrire(nom, etat[nom]); etat.charge[nom] = etat[nom].meta.ecrit_le; etat.dirty[nom] = false; }
+    rendreSync(); return true;
+  },
+  async verifier({ silencieux } = {}) {
+    if (!backendGitHub.pret()) return;
+    let r;
+    try { r = await backendGitHub.tirer(); }
+    catch (e) { if (e.code === 'PHRASE') { await idb.set('cle.protegee', null); deconnecterUI('Ta phrase secrète a changé sur un autre appareil : saisis la nouvelle.'); } else toast(e.message, 'bad'); return; }
+    if (r.horsligne && !r.cacheLocal) { if (!silencieux) toast('Hors ligne : tu vois la dernière version connue', 'warn'); return; }
+    if (r.absent || !r.change) { if (!silencieux) toast('Tout est à jour', 'ok'); if (backendGitHub.enAttente) backendGitHub.envoyerMaintenant(); return; }
+    if (!etat.dirty.rules && !etat.dirty.data) { await store.charger(); if (!silencieux) toast('Mis à jour', 'ok'); return; }
+    const f = coffre.fusionner({ rules: etat.rules, data: etat.data }, backendGitHub.cache);
+    etat.rules = f.rules; etat.data = f.data; marquer('rules'); marquer('data');
+    modele.migrer(etat.rules, etat.data); recategoriser(); toutRendre();
+    await store.enregistrer();
+    toast('Réuni avec la version de ton autre appareil', 'ok');
+  }
+};
+function recategoriser() { if (!etat.data) return 0; catalogue.appliquer(etat.rules); const avantD = JSON.stringify(etat.data.operations), avantR = JSON.stringify([etat.rules.rules, etat.rules.tiers]); const n = engine.run(etat.data, etat.rules); if (JSON.stringify(etat.data.operations) !== avantD) marquer('data'); if (JSON.stringify([etat.rules.rules, etat.rules.tiers]) !== avantR) marquer('rules'); return n; }
+async function sauver() { toutRendre(); if (backendGitHub.pret()) await store.enregistrer(); }
+backendGitHub.onFusion = async () => {
+  if (etat.dirty.rules || etat.dirty.data) { const g = coffre.fusionner({ rules: etat.rules, data: etat.data }, backendGitHub.cache); etat.rules = g.rules; etat.data = g.data; marquer('rules'); marquer('data'); }
+  else { etat.rules = backendGitHub.cache.rules; etat.data = backendGitHub.cache.data; }
+  recategoriser(); toutRendre(); if (etat.dirty.rules || etat.dirty.data) await store.enregistrer();
+  toast('Réuni avec la version de ton autre appareil', 'ok');
+};
+document.addEventListener('visibilitychange', () => { if (!backendGitHub.pret()) return; if (document.visibilityState === 'visible') store.verifier({ silencieux: true }); else backendGitHub.envoyerMaintenant(); });
+window.addEventListener('pagehide', () => backendGitHub.envoyerMaintenant());
+window.addEventListener('beforeunload', e => { if (etat.dirty.rules || etat.dirty.data || backendGitHub.enAttente) { backendGitHub.envoyerMaintenant(); e.preventDefault(); e.returnValue = ''; } });
+
+// ---------- annulation : 20 pas en arrière
+const annulation = { pile: [], MAX: 20,
+  prendre(libelle) { this.pile.push({ libelle, rules: JSON.stringify(etat.rules), data: JSON.stringify(etat.data) }); if (this.pile.length > this.MAX) this.pile.shift(); $('#annuler-bar').classList.remove('hidden'); clearTimeout(this.t); this.t = setTimeout(() => $('#annuler-bar').classList.add('hidden'), 8000); },
+  async annuler() { const p = this.pile.pop(); if (!p) return; etat.rules = JSON.parse(p.rules); etat.data = JSON.parse(p.data); marquer('rules'); marquer('data'); recategoriser(); await sauver(); toast('Annulé', 'ok'); if (!this.pile.length) $('#annuler-bar').classList.add('hidden'); }
+};
+$('#btn-annuler').onclick = () => annulation.annuler();
+
+// ---------- navigation
+function montrerEcran(nom) { etat.ecran = nom; document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x.dataset.screen === nom)); document.querySelectorAll('section.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + nom)); fermerFeuille(); try { window.scrollTo(0, 0); } catch { } toutRendre(); }
+document.querySelectorAll('#nav button').forEach(b => { b.onclick = () => montrerEcran(b.dataset.screen); });
+function montrerApp(connecte) { $('#ecran-connexion').classList.toggle('hidden', connecte); $('#entete').classList.toggle('hidden', !connecte); $('#nav').classList.toggle('hidden', !connecte); document.querySelectorAll('section.screen').forEach(s => { s.classList.toggle('hidden', !connecte); if (!connecte) s.classList.remove('on'); }); if (connecte && !document.querySelector('section.screen.on')) montrerEcran('accueil'); }
+
+// ---------- feuille du bas
+function ouvrirFeuille(html) { $('#feuille').innerHTML = html; $('#feuille').classList.remove('hidden'); $('#voile').classList.remove('hidden'); }
+function fermerFeuille() { $('#feuille').classList.add('hidden'); $('#voile').classList.add('hidden'); $('#feuille').innerHTML = ''; }
+$('#voile').onclick = fermerFeuille;
+
+// ---------- connexion
+const ghPrefs = { lire() { try { return JSON.parse(localStorage.getItem('budget.github') || 'null'); } catch { return null; } }, ecrire(o) { if (o) localStorage.setItem('budget.github', JSON.stringify(o)); else localStorage.removeItem('budget.github'); } };
+function montrerFormulaire(msg) { montrerApp(false); $('#co-form').classList.remove('hidden'); $('#co-ouvrir').classList.add('hidden'); $('#co-msg').textContent = msg || ''; }
+function montrerCode(msg) { montrerApp(false); $('#co-form').classList.add('hidden'); $('#co-ouvrir').classList.remove('hidden'); $('#co-ouvrir-msg').textContent = msg || 'Ton petit code ?'; $('#co-ouvrir-code').value = ''; $('#co-ouvrir-code').focus(); }
+function deconnecterUI(msg) { backendGitHub.cle = null; backendGitHub.cfg = null; backendGitHub.cache = { rules: null, data: null }; backendGitHub.majSync('deconnecte'); montrerFormulaire(msg); }
+async function memoriserCle(brute, code) { await idb.set('cle.protegee', brute && code ? await chiffre.proteger(brute, code) : null); await idb.set('cle.essais', 0); }
+$('#co-souvenir').onchange = () => $('#co-code-label').classList.toggle('hidden', !$('#co-souvenir').checked);
+$('#co-phrase').oninput = e => { const f = chiffre.force(e.target.value); $('#co-force').textContent = ['', 'Un peu courte', 'Ça va', 'Bien', 'Très bien'][f]; };
+function lireFormulaire() {
+  const d = github.lireDepot($('#co-depot').value); if (!d) throw chiffre.erreur('FORMAT', 'Le dépôt doit s\'écrire proprietaire/depot (dans Détails techniques).');
+  const token = $('#co-token').value.trim() || (ghPrefs.lire() || {}).token || ''; if (!token) throw chiffre.erreur('TOKEN', 'Il manque ton jeton d\'accès.');
+  const souvenir = $('#co-souvenir').checked, code = souvenir ? chiffre.verifierCode($('#co-code').value) : null;
+  const nomMachine = ($('#co-machine').value || '').trim().toUpperCase().slice(0, 12) || machine;
+  return { cfg: { owner: d.owner, repo: d.repo, branche: ($('#co-branche').value.trim() || 'main'), token }, phrase: $('#co-phrase').value, souvenir, code, machine: nomMachine };
+}
+async function ouvrirApp() {
+  montrerApp(true);
+  try { const r = await backendGitHub.tirer(); if (r.absent && !backendGitHub.kdf) { deconnecterUI('Le fichier en ligne a disparu : saisis ta phrase pour repartir.'); return false; } }
+  catch (e) { if (e.code === 'PHRASE') await idb.set('cle.protegee', null); deconnecterUI(e.code === 'PHRASE' ? 'Ta phrase secrète a changé sur un autre appareil : saisis la nouvelle.' : e.message); return false; }
+  await store.charger();
+  backendGitHub.majSync(backendGitHub.enAttente ? 'attente' : 'synchronise');
+  return true;
+}
+async function connecter() {
+  let f; try { f = lireFormulaire(); } catch (e) { $('#co-msg').textContent = e.message; return; }
+  const bouton = $('#co-connecter'); bouton.disabled = true; $('#co-msg').textContent = 'Connexion…';
+  try {
+    const depot = await github.verifierDepot(f.cfg);
+    if (!depot.prive) throw chiffre.erreur('DEPOT', 'Ce dépôt est public : il doit être privé.');
+    const lu = await github.lire(f.cfg);
+    backendGitHub.cfg = f.cfg; backendGitHub.cache = { rules: null, data: null }; backendGitHub.sha = null; backendGitHub.seq = 0; backendGitHub.aad = null;
+    let brute = null;
+    if (lu.absent) { if (!f.phrase) throw chiffre.erreur('PHRASE', 'Choisis une phrase secrète : c\'est la première fois.'); const sel = chiffre.sel(); brute = await chiffre.deriverBrute(f.phrase, sel); backendGitHub.cle = await chiffre.importer(brute); backendGitHub.kdf = { sel, iter: chiffre.ITERATIONS }; }
+    else { if (!f.phrase) throw chiffre.erreur('PHRASE', 'Il manque ta phrase secrète.'); const env = JSON.parse(lu.texte); chiffre.verifierEnveloppe(env); brute = await chiffre.deriverBrute(f.phrase, env.kdf.sel, env.kdf.iter); backendGitHub.cle = await chiffre.importer(brute); await backendGitHub.installer(env, lu.sha); await backendGitHub.garderLocal(env, lu.sha); }
+    machine = f.machine; localStorage.setItem('budget.machine', machine);
+    ghPrefs.ecrire({ owner: f.cfg.owner, repo: f.cfg.repo, branche: f.cfg.branche, token: f.souvenir ? f.cfg.token : null, souvenir: f.souvenir });
+    await memoriserCle(f.souvenir ? brute : null, f.code); brute = null;
+    $('#co-phrase').value = ''; $('#co-token').value = ''; $('#co-code').value = ''; $('#co-msg').textContent = '';
+    if (await ouvrirApp()) { if (lu.absent) backendGitHub.envoyerMaintenant(); toast(lu.absent ? 'Bienvenue ! Tout est prêt.' : 'Bienvenue !', 'ok'); }
+  } catch (e) { deconnecterUI(e.code === 'PHRASE' && /déchiffrement/.test(e.message) ? 'Ce n\'est pas la bonne phrase secrète.' : e.message); }
+  finally { bouton.disabled = false; }
+}
+$('#co-connecter').onclick = connecter;
+const MAX_ESSAIS_CODE = 5;
+async function ouvrirParCode() {
+  const prefs = ghPrefs.lire(), protegee = await idb.get('cle.protegee');
+  if (!prefs || !prefs.token || !protegee) { montrerFormulaire('Il faut ton jeton et ta phrase secrète.'); return; }
+  $('#co-ouvrir-btn').disabled = true;
+  try {
+    let cle; try { cle = await chiffre.liberer(protegee, $('#co-ouvrir-code').value); }
+    catch (e) {
+      if (e.code !== 'CODE') throw e;
+      const essais = ((await idb.get('cle.essais')) || 0) + 1; await idb.set('cle.essais', essais);
+      if (essais >= MAX_ESSAIS_CODE) { await idb.set('cle.protegee', null); montrerFormulaire('Trop d\'essais : saisis ta phrase secrète.'); return; }
+      montrerCode(`Ce n'est pas le bon code (encore ${MAX_ESSAIS_CODE - essais} essai${MAX_ESSAIS_CODE - essais > 1 ? 's' : ''}).`); return;
+    }
+    await idb.set('cle.essais', 0);
+    backendGitHub.cfg = { owner: prefs.owner, repo: prefs.repo, branche: prefs.branche || 'main', token: prefs.token }; backendGitHub.cle = cle;
+    await ouvrirApp();
+  } catch (e) { montrerCode(e.message); }
+  finally { $('#co-ouvrir-btn').disabled = false; }
+}
+$('#co-ouvrir-btn').onclick = ouvrirParCode;
+$('#co-ouvrir-code').onkeydown = e => { if (e.key === 'Enter') ouvrirParCode(); };
+$('#co-ouvrir-phrase').onclick = async () => { await idb.set('cle.protegee', null); montrerFormulaire('Saisis ta phrase secrète, et choisis un nouveau petit code.'); };
+$('#btn-phrase').onclick = async () => {
+  if (!backendGitHub.pret()) return;
+  const p1 = prompt('Ta nouvelle phrase secrète (4 ou 5 mots) :'); if (!p1) return;
+  const p2 = prompt('Encore une fois, pour être sûre :'); if (p1 !== p2) { toast('Les deux phrases ne sont pas pareilles', 'bad'); return; }
+  let code = null;
+  if ((ghPrefs.lire() || {}).souvenir !== false) { code = prompt('Ton petit code pour cet appareil (4 à 8 chiffres, vide = ne pas se souvenir) :'); try { code = code ? chiffre.verifierCode(code) : null; } catch (e) { toast(e.message, 'bad'); return; } }
+  if (etat.dirty.rules || etat.dirty.data) await store.enregistrer();
+  await backendGitHub.changerPhrase(p1, code);
+  toast('Phrase changée. Pense à la saisir sur tes autres appareils.', 'ok');
+};
+$('#btn-deconnecter').onclick = async () => {
+  if (!confirm('Oublier ce qui est mémorisé sur cet appareil ? Tes opérations restent en ligne, chiffrées.')) return;
+  await backendGitHub.envoyerMaintenant();
+  ghPrefs.ecrire(null); await idb.set('cle.protegee', null); await idb.set('enveloppe', null); await idb.set('enveloppe.sha', null); await idb.set('enveloppe.attente', null);
+  location.reload();
+};
+$('#btn-verifier').onclick = () => store.verifier();
+$('#btn-export').onclick = () => {
+  if (!etat.rules) return;
+  const o = { rules: modele.pourEcriture('rules', etat.rules), data: modele.pourEcriture('data', etat.data) };
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serial.stringify(o)], { type: 'application/json' })); a.download = 'mon-budget.json'; a.click(); URL.revokeObjectURL(a.href);
+  toast('Copie téléchargée. Elle n\'est pas chiffrée : garde-la pour toi.');
+};
+$('#btn-tests').onclick = async () => { const r = await tests.runAsync(); const ok = r.filter(x => x.ok).length; $('#tests').innerHTML = `<p>${ok === r.length ? '✅ Tout marche' : '⚠️ Quelque chose cloche'} (${ok}/${r.length})</p>` + (ok === r.length ? '' : `<ul>${r.filter(x => !x.ok).map(x => `<li>${esc(x.nom)}${x.err ? ' — ' + esc(x.err) : ''}</li>`).join('')}</ul>`); };
+(async function demarrage() {
+  const prefs = ghPrefs.lire();
+  $('#co-machine').value = machine;
+  if (prefs) { $('#co-depot').value = `${prefs.owner}/${prefs.repo}`; $('#co-branche').value = prefs.branche || 'main'; $('#co-souvenir').checked = prefs.souvenir !== false; $('#co-code-label').classList.toggle('hidden', prefs.souvenir === false); }
+  else { const q = new URLSearchParams(location.search); if (q.get('depot')) $('#co-depot').value = q.get('depot'); }
+  const protegee = prefs && prefs.token ? await idb.get('cle.protegee') : null;
+  if (protegee) montrerCode(); else montrerFormulaire(prefs && prefs.token ? 'Il faut ta phrase secrète.' : '');
+})();
+
+// ---------- import CSV
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => importerFichiers([...e.dataTransfer.files]));
+$('#btn-choisir').onclick = () => $('#in-csv').click();
+$('#in-csv').onchange = e => { const files = [...e.target.files]; e.target.value = ''; importerFichiers(files); };
+async function importerFichiers(files) {
+  if (!etat.data) return;
+  let nouvelles = 0, lues = 0; const soucis = [];
+  annulation.prendre('import');
+  for (const f of files) {
+    const lu = banques.lire(new Uint8Array(await f.arrayBuffer()), f.name);
+    if (!lu.banque) { soucis.push(`${f.name} : ${lu.erreurs[0]}`); continue; }
+    const r = modele.importer(etat.data, lu); nouvelles += r.inserees.length; lues += lu.lues;
+    if (lu.erreurs.length) soucis.push(`${f.name} : ${lu.erreurs.length} ligne${lu.erreurs.length > 1 ? 's' : ''} que je n'ai pas comprise${lu.erreurs.length > 1 ? 's' : ''}`);
+    if (lu.dateExport) etat.mois = util.mois(lu.dateExport);
+  }
+  marquer('data'); recategoriser();
+  const aClasser = engine.aClasser(etat.data).length;
+  $('#import-msg').textContent = nouvelles ? `C'est importé. ${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} ligne${nouvelles > 1 ? 's' : ''}, ${aClasser} à classer.` : (lues ? 'Rien de nouveau : tout était déjà là.' : '');
+  if (soucis.length) toast(soucis.join(' · '), 'bad');
+  etat.plusTard = new Set();
+  await sauver();
+}
+
+// ---------- accueil : chiffres du mois + boîte de classement
+const PHRASES = { REV: 'un revenu', FIX: 'une facture ou le loyer', ABO: 'un abonnement', 'ALIM.COURSES': 'des courses', 'ALIM.RESTO': 'un resto ou un café', MOB: 'du transport', 'LOIS.SHOPPING': 'du shopping', 'LOIS.SORTIES': 'une sortie ou un voyage', 'LOIS.CADEAUX': 'un cadeau', SANTE: 'de la santé ou de la beauté', EPG: 'de l\'épargne', HB: 'hors budget', AUTRE: 'autre chose' };
+function phraseCat(code) { return PHRASES[code] || `« ${CAT[code] ? CAT[code].libelle : code} »`; }
+function cat(code) { return CAT[code] || CAT[CAT_DEFAUT]; }
+function pastille(code, taille) { const c = cat(code); return `<span class="pastille" style="background:${c.couleur}22;${taille ? `width:${taille}px;height:${taille}px;` : ''}">${c.emoji}</span>`; }
+function chiffresMois(mois) {
+  const b = stats.bilan(etat.data, mois);
+  return `<div class="gros-chiffres"><div><div class="val">${eur(b.revenus)}</div><div class="lab">Revenus</div></div><div><div class="val">${eur(b.depenses)}</div><div class="lab">Dépenses</div></div><div><div class="val" style="color:${b.reste < 0 ? 'var(--accent)' : 'var(--positif)'}">${eur(b.reste)}</div><div class="lab">Reste</div></div></div>`;
+}
+function rendreAccueil() {
+  const mois = stats.dernierMois(etat.data);
+  const groupes = engine.groupes(etat.data).filter(g => !etat.plusTard.has(g.cle));
+  const total = engine.aClasser(etat.data).length;
+  $('#accueil-chiffres').innerHTML = etat.data.operations.length ? `<div class="carte"><p class="mention" style="text-align:center">${util.moisLisible(mois)}</p>${chiffresMois(mois)}</div>` : '';
+  document.querySelector('#nav button[data-screen=accueil]').innerHTML = `<span class="ico">🏠</span>Accueil${total ? '<span class="point"></span>' : ''}`;
+  const b = $('#boite');
+  if (!etat.data.operations.length) { b.innerHTML = `<div class="carte tendre"><p>👋 Bienvenue ! Commence par importer ton fichier de la banque.</p></div>`; return; }
+  if (!groupes.length) { b.innerHTML = `<div class="carte tendre" style="text-align:center"><p style="font-size:var(--t-sous-titre)">${total ? '😌 Le reste attendra la prochaine fois.' : '🎉 Tout est classé !'}</p>${total ? `<button class="lien" id="btn-reprendre">Reprendre ce que j'ai mis de côté</button>` : ''}</div>`; const r = $('#btn-reprendre'); if (r) r.onclick = () => { etat.plusTard = new Set(); rendreAccueil(); }; return; }
+  const g = groupes[0]; const fait = total - groupes.reduce((s, x) => s + x.ops.length, 0);
+  const n = g.ops.length; const mnt = n === 1 ? eur(g.ops[0].montant) : `${n} fois, ${eur(g.total)} en tout`;
+  const quand = n === 1 ? util.jourLisible(g.ops[0].date) : (g.ceMois === n ? 'ce mois-ci' : `depuis ${util.moisLisible(util.mois(g.ops[g.ops.length - 1].date)).toLowerCase()}`);
+  let html = `<div class="carte carte-classer"><p class="mention">${groupes.length} à classer</p><div class="progres"><i style="width:${Math.round(100 * fait / Math.max(total, 1))}%"></i></div>`;
+  html += `<div class="nom">${esc(g.nom)}</div><p class="mention">${mnt} · ${quand}</p>`;
+  if (g.proposition) {
+    html += `<p class="question">${pastille(g.proposition, 48)}<br>C'est ${phraseCat(g.proposition)} ?</p><div class="boutons"><button class="primaire" id="bx-oui">Oui</button><button id="bx-autre">Autre chose</button><button class="douce" id="bx-tard">Plus tard</button></div>`;
+  } else {
+    html += `<p class="question">C'est quoi ?</p><div class="tuiles" id="bx-tuiles">${tuilesChoix(null)}</div><div class="boutons" style="margin-top:var(--e3)"><button class="douce" id="bx-tard">Plus tard</button></div>`;
+  }
+  html += `</div>`;
+  b.innerHTML = html;
+  const classer = async (code) => { annulation.prendre('classer'); for (const o of g.ops) engine.corriger(etat.data, etat.rules, machine, o, { categorie: code }); marquer('data'); marquer('rules'); recategoriser(); await sauver(); };
+  if ($('#bx-oui')) $('#bx-oui').onclick = () => classer(g.proposition);
+  if ($('#bx-autre')) $('#bx-autre').onclick = () => choisirCategorie(`${esc(g.nom)} — c'est quoi ?`, g.proposition, code => classer(code));
+  $('#bx-tard').onclick = () => { etat.plusTard.add(g.cle); rendreAccueil(); };
+  const t = $('#bx-tuiles'); if (t) t.querySelectorAll('[data-code]').forEach(x => { x.onclick = () => classer(x.dataset.code); });
+}
+function tuilesChoix(actuel) { return catalogue.visibles().map(code => { const c = CAT[code]; return `<button class="tuile ${code === actuel ? 'on' : ''}" data-code="${code}"><span class="emo" style="background:${c.couleur}22">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span></button>`; }).join(''); }
+// feuille : choisir une catégorie
+function choisirCategorie(titre, actuel, cb, options) {
+  const o = options || {};
+  ouvrirFeuille(`<h3>${titre}</h3><div class="tuiles">${tuilesChoix(actuel)}</div>${o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : ''}`);
+  $('#feuille').querySelectorAll('[data-code]').forEach(x => { x.onclick = () => { const regle = o.caseRegle ? $('#fx-regle').checked : true; fermerFeuille(); cb(x.dataset.code, regle); }; });
+}
+
+// ---------- opérations
+function rendreOps() {
+  const mois = etat.mois || stats.dernierMois(etat.data);
+  $('#mois-titre').textContent = util.moisLisible(mois);
+  const jours = stats.parJour(etat.data, mois);
+  const b = stats.bilan(etat.data, mois);
+  let html = jours.length ? `<div class="carte">${chiffresMois(mois)}</div>` : `<div class="carte tendre"><p>Rien ce mois-ci.</p></div>`;
+  for (const j of jours) {
+    html += `<div class="jour">${util.jourLisible(j.date)}</div>`;
+    for (const o of j.ops) { const c = cat(o.categorie); const aC = o.statut === 'a_valider'; html += `<button class="op ${aC ? 'aclasser' : ''}" data-id="${o.id}">${pastille(o.categorie)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}</span><span class="cat">${aC ? 'À classer' : esc(c.libelle)}${o.motif ? ' · ' + esc(o.motif) : ''}</span></span><span class="mt ${o.montant > 0 ? 'pos' : ''}">${eur(o.montant)}</span></button>`; }
+  }
+  $('#ops-liste').innerHTML = html;
+  $('#ops-liste').querySelectorAll('.op').forEach(x => { x.onclick = () => editerOp(x.dataset.id); });
+  void b;
+}
+function editerOp(id) {
+  const o = etat.data.operations.find(x => x.id === id); if (!o) return;
+  const nom = o.tiers ? norm.nomLisible({ cle: o.tiers }) : norm.nomLisible(o);
+  choisirCategorie(`${esc(nom)} · ${eur(o.montant)}`, o.categorie, async (code, regle) => { annulation.prendre('op'); engine.corriger(etat.data, etat.rules, machine, o, { categorie: code, creerRegle: regle }); marquer('data'); marquer('rules'); recategoriser(); await sauver(); toast(regle ? `C'est noté pour « ${nom} »` : 'C\'est noté', 'ok'); }, { caseRegle: true, nom });
+}
+$('#mois-prec').onclick = () => { etat.mois = util.moisPrecedent(etat.mois || stats.dernierMois(etat.data)); rendreOps(); };
+$('#mois-suiv').onclick = () => { etat.mois = util.moisSuivant(etat.mois || stats.dernierMois(etat.data)); rendreOps(); };
+
+// ---------- analyse
+let graphique = null;
+function rendreAnalyse() {
+  const mois = etat.moisAnalyse || stats.dernierMois(etat.data);
+  $('#an-titre').textContent = util.moisLisible(mois);
+  const b = stats.bilan(etat.data, mois);
+  const parts = stats.camembert(b, 8);
+  $('#an-chiffres').innerHTML = chiffresMois(mois).replace(/^<div class="gros-chiffres">|<\/div>$/g, '');
+  const couleur = (p) => p.code === 'AUTRES' ? '#c9c3c7' : cat(p.code).couleur;
+  const nom = (p) => p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle;
+  const emoji = (p) => p.code === 'AUTRES' ? '➕' : cat(p.code).emoji;
+  if (window.Chart && $('#camembert')) {
+    if (graphique) { graphique.destroy(); graphique = null; }
+    if (parts.length) graphique = new Chart($('#camembert'), { type: 'doughnut', data: { labels: parts.map(nom), datasets: [{ data: parts.map(p => p.montant), backgroundColor: parts.map(couleur), borderColor: '#fff', borderWidth: 2 }] }, options: { cutout: '58%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${eur(c.parsed)}` } } }, onClick: (e, els) => { if (els.length) montrerDetail(mois, parts[els[0].index]); } } });
+  }
+  $('#an-legende').innerHTML = parts.length ? parts.map((p, i) => `<button data-i="${i}"><span class="puce" style="background:${couleur(p)}"></span><span>${emoji(p)}</span><span class="pousse">${esc(nom(p))}</span><span class="mt">${eur(p.montant)}</span><span class="mention">${Math.round(100 * p.montant / Math.max(b.depenses, 0.01))} %</span></button>`).join('') : '<p class="mention">Pas de dépenses ce mois-ci.</p>';
+  $('#an-legende').querySelectorAll('button').forEach(x => { x.onclick = () => montrerDetail(mois, parts[Number(x.dataset.i)]); });
+  if (etat.detailCodes && etat.detailCodes.mois === mois) rendreDetail(mois, etat.detailCodes); else { etat.detailCodes = null; $('#an-detail').innerHTML = ''; }
+}
+function montrerDetail(mois, p) { etat.detailCodes = { mois, codes: p.codes, nom: p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle }; rendreDetail(mois, etat.detailCodes); const el = $('#an-detail'); if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function rendreDetail(mois, d) {
+  const lignes = stats.lignes(etat.data, mois, d.codes);
+  $('#an-detail').innerHTML = `<div class="carte"><div class="ligne"><h3 class="pousse">${esc(d.nom)}</h3><button class="lien" id="an-fermer">Fermer</button></div>${lignes.map(o => `<button class="op" data-id="${o.id}">${pastille(o.categorie)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}</span><span class="cat">${o.date.slice(8, 10)}/${o.date.slice(5, 7)} · ${esc(cat(o.categorie).libelle)}</span></span><span class="mt">${eur(o.montant)}</span></button>`).join('') || '<p class="mention">Rien ici.</p>'}</div>`;
+  $('#an-fermer').onclick = () => { etat.detailCodes = null; $('#an-detail').innerHTML = ''; };
+  $('#an-detail').querySelectorAll('.op').forEach(x => { x.onclick = () => editerOp(x.dataset.id); });
+}
+$('#an-prec').onclick = () => { etat.moisAnalyse = util.moisPrecedent(etat.moisAnalyse || stats.dernierMois(etat.data)); etat.detailCodes = null; rendreAnalyse(); };
+$('#an-suiv').onclick = () => { etat.moisAnalyse = util.moisSuivant(etat.moisAnalyse || stats.dernierMois(etat.data)); etat.detailCodes = null; rendreAnalyse(); };
+window.addEventListener('load', () => { if (etat.data) rendreAnalyse(); });
+
+// ---------- plus : mes catégories + réglages
+const EMOJIS = ['🏠', '💶', '📱', '🛒', '🍽️', '🚗', '🛍️', '🎟️', '🎁', '💊', '🐷', '🔄', '❓', '🏷️', '☕', '🍕', '🍷', '🚆', '✈️', '⛽', '🅿️', '🏋️', '🎵', '🎬', '📚', '🐱', '🐶', '🌿', '💇', '💅', '👗', '👟', '🧴', '🧺', '💡', '📦', '🎓', '🏖️', '❤️', '✨'];
+function rendrePlus() {
+  const mois = stats.dernierMois(etat.data);
+  const vis = catalogue.visibles(), masq = CATALOGUE.map(x => x[0]).filter(c => CAT[c].masque);
+  $('#tuiles').innerHTML = vis.map(code => { const c = CAT[code]; return `<div class="tuile" draggable="true" data-code="${code}" role="button" tabindex="0"><span class="emo" style="background:${c.couleur}33">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span><span class="n">${catalogue.nbLignes(etat.data, code, mois)} ce mois-ci</span></div>`; }).join('') + `<button class="tuile ajout" id="tuile-ajout"><span class="emo">➕</span><span class="nom">Ajouter</span></button>`;
+  $('#tuiles-masquees').innerHTML = masq.length ? `<p class="mention" style="margin-top:var(--e4)">Masquées : ${masq.map(code => `<button class="lien" data-code="${code}">${CAT[code].emoji} ${esc(CAT[code].libelle)}</button>`).join(' ')}</p>` : '';
+  $('#tuiles-masquees').querySelectorAll('button').forEach(x => { x.onclick = async () => { annulation.prendre('afficher'); catalogue.masquer(etat.rules, x.dataset.code, false); marquer('rules'); await sauver(); }; });
+  $('#tuiles').querySelectorAll('.tuile[data-code]').forEach(t => {
+    t.onclick = () => actionsCategorie(t.dataset.code);
+    t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actionsCategorie(t.dataset.code); } };
+    t.ondragstart = e => { e.dataTransfer.setData('text/plain', t.dataset.code); };
+    t.ondragover = e => { e.preventDefault(); t.classList.add('cible'); };
+    t.ondragleave = () => t.classList.remove('cible');
+    t.ondrop = e => { e.preventDefault(); t.classList.remove('cible'); const de = e.dataTransfer.getData('text/plain'); if (de && de !== t.dataset.code) confirmerFusion(de, t.dataset.code); };
+  });
+  $('#tuile-ajout').onclick = ajouterCategorie;
+  $('#reg-prenom').value = etat.rules.config.titulaire || '';
+  const dev = !etat.rules.config.titulaire && engine.devinerTitulaire(etat.data);
+  $('#reg-prenom-devine').innerHTML = dev ? `C'est toi, « ${esc(norm.nomLisible({ cle: dev }))} » ? <button class="lien" id="reg-prenom-oui">Oui</button>` : '';
+  const oui = $('#reg-prenom-oui'); if (oui) oui.onclick = async () => { etat.rules.config.titulaire = dev; marquer('rules'); recategoriser(); await sauver(); };
+}
+$('#reg-prenom').onchange = async e => { etat.rules.config.titulaire = e.target.value.trim() || null; marquer('rules'); recategoriser(); await sauver(); };
+function actionsCategorie(code) {
+  const c = CAT[code];
+  ouvrirFeuille(`<h3>${c.emoji} ${esc(c.libelle)}</h3><div class="liste-actions"><button id="ca-renommer">✏️ Renommer</button><button id="ca-style">🎨 Changer l'emoji ou la couleur</button><button id="ca-fusion">🔀 Réunir avec une autre…</button><button id="ca-haut">⬆️ Monter</button><button id="ca-bas">⬇️ Descendre</button>${code === CAT_DEFAUT ? '' : `<button id="ca-masquer">🙈 Masquer</button>`}</div>`);
+  $('#ca-renommer').onclick = async () => { const n = prompt('Nouveau nom :', c.libelle); if (!n || !n.trim()) return; annulation.prendre('renommer'); catalogue.renommer(etat.rules, code, n); marquer('rules'); fermerFeuille(); await sauver(); };
+  $('#ca-style').onclick = () => stylerCategorie(code);
+  $('#ca-fusion').onclick = () => { fermerFeuille(); choisirCategorie(`Réunir « ${esc(c.libelle)} » avec…`, null, vers => { if (vers !== code) confirmerFusion(code, vers); }); };
+  $('#ca-haut').onclick = async () => { catalogue.deplacer(etat.rules, code, -1); marquer('rules'); fermerFeuille(); await sauver(); };
+  $('#ca-bas').onclick = async () => { catalogue.deplacer(etat.rules, code, 1); marquer('rules'); fermerFeuille(); await sauver(); };
+  const m = $('#ca-masquer'); if (m) m.onclick = async () => { annulation.prendre('masquer'); catalogue.masquer(etat.rules, code, true); marquer('rules'); fermerFeuille(); await sauver(); toast('Masquée. Tu peux la réafficher plus bas.', 'ok'); };
+}
+function stylerCategorie(code, pourAjout) {
+  const c = pourAjout || CAT[code]; let emoji = c.emoji, couleur = c.couleur;
+  const rendu = () => `<h3>${pourAjout ? 'Nouvelle catégorie' : esc(c.libelle)}</h3>${pourAjout ? `<label for="st-nom">Nom</label><input id="st-nom" type="text" value="${esc(c.libelle)}">` : ''}<p class="mention">Emoji</p><div class="emojis">${EMOJIS.map(e => `<button data-e="${e}" class="${e === emoji ? 'on' : ''}">${e}</button>`).join('')}</div><p class="mention" style="margin-top:var(--e3)">Couleur</p><div class="pastilles-couleur">${COULEURS.map(k => `<button data-k="${k}" class="${k === couleur ? 'on' : ''}" style="background:${k}" aria-label="${k}"></button>`).join('')}</div><button class="primaire" id="st-ok" style="width:100%;margin-top:var(--e4)">C'est bon</button>`;
+  ouvrirFeuille(rendu());
+  const brancher = () => {
+    $('#feuille').querySelectorAll('[data-e]').forEach(b => { b.onclick = () => { emoji = b.dataset.e; $('#feuille').querySelectorAll('[data-e]').forEach(x => x.classList.toggle('on', x.dataset.e === emoji)); }; });
+    $('#feuille').querySelectorAll('[data-k]').forEach(b => { b.onclick = () => { couleur = b.dataset.k; $('#feuille').querySelectorAll('[data-k]').forEach(x => x.classList.toggle('on', x.dataset.k === couleur)); }; });
+    $('#st-ok').onclick = async () => {
+      annulation.prendre('style');
+      if (pourAjout) { const nom = $('#st-nom').value.trim(); if (!nom) { toast('Il faut un nom', 'bad'); return; } try { catalogue.ajouter(etat.rules, nom, emoji, couleur, null, false); } catch (e) { toast(e.message, 'bad'); return; } }
+      else catalogue.styler(etat.rules, code, emoji, couleur);
+      marquer('rules'); fermerFeuille(); await sauver();
+    };
+  };
+  brancher();
+}
+function ajouterCategorie() { stylerCategorie(null, { libelle: '', emoji: '🏷️', couleur: COULEURS[CATALOGUE.length % COULEURS.length] }); }
+function confirmerFusion(de, vers) {
+  const a = CAT[de], b = CAT[vers]; if (!a || !b) return;
+  const n = catalogue.nbLignes(etat.data, de);
+  ouvrirFeuille(`<h3>Réunir ${a.emoji} ${esc(a.libelle)} dans ${b.emoji} ${esc(b.libelle)} ?</h3><p>${n ? `Les ${n} lignes « ${esc(a.libelle)} » passeront en « ${esc(b.libelle)} », ` : ''}et « ${esc(a.libelle)} » sera masquée.</p><div class="boutons" style="margin-top:var(--e4)"><button class="primaire" id="fu-oui">Oui, réunir</button><button id="fu-non">Non</button></div>`);
+  $('#fu-non').onclick = fermerFeuille;
+  $('#fu-oui').onclick = async () => { annulation.prendre('fusion'); try { catalogue.fusionner(etat.rules, etat.data, de, vers); } catch (e) { toast(e.message, 'bad'); return; } marquer('rules'); marquer('data'); fermerFeuille(); recategoriser(); await sauver(); toast('Réunies', 'ok'); };
+}
+// accès pour le scénario de test (tests/scenario.js) ; sans effet pour l'utilisatrice
+window.__app = { etat, importerFichiers, backendGitHub, store, montrerEcran, annulation, sauver, tests, engine, CAT };
+})();
+</script>
+</body>
+</html>
