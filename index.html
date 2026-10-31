@@ -35,6 +35,11 @@ label{display:block;margin:var(--e3) 0 var(--e1);font-weight:500}
 .hidden{display:none!important}
 .page{max-width:600px;margin:0 auto;padding:var(--e4) var(--e4) var(--e5)}
 header.haut{display:flex;align-items:baseline;justify-content:space-between;gap:var(--e3);padding:var(--e4) var(--e4) 0;max-width:600px;margin:0 auto}
+header.haut h1{font-size:clamp(24px,7vw,32px)}
+header.haut .badge{flex:none}
+.carte-tag{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap}
+.carte-tag .texte{flex:1 1 180px;min-width:0}
+.carte-tag button{flex:0 0 auto;min-height:36px;padding:4px var(--e3);font-size:var(--t-mention)}
 .badge{display:inline-block;font-size:12px;border-radius:999px;padding:2px 10px;background:var(--fond-bloc);color:var(--texte-secondaire)}
 .badge.ok{background:#e4f3ea;color:var(--positif)}.badge.warn{background:#fff1d6;color:#8a5a00}.badge.bad{background:#fde3e1;color:#9c2a24}
 .carte{background:var(--fond-carte);border-radius:var(--rayon-carte);padding:var(--e4);margin:var(--e3) 0;box-shadow:0 1px 0 rgba(80,9,23,.06)}
@@ -52,9 +57,12 @@ header.haut{display:flex;align-items:baseline;justify-content:space-between;gap:
 .sous-liste{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e2) 0 0}
 .sous-liste button{min-height:36px;border-radius:999px;font-size:var(--t-mention);padding:4px var(--e3)}
 .ligne{display:flex;align-items:center;gap:var(--e3)}
-.ligne .pousse{flex:1;min-width:0}
+.pousse{flex:1 1 0;min-width:0}
+.op .pousse,.revue-ligne .pousse{display:block}
 .pastille{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;background:var(--fond-bloc)}
-.mt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.mt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;flex:none}
+.pastille{flex:none}
+#feuille h3,.carte-classer .nom,.jour{overflow-wrap:anywhere}
 .mt.pos{color:var(--positif)}
 .tronque{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* barre basse */
@@ -66,13 +74,14 @@ nav#nav button .point{position:absolute;margin-left:28px;margin-top:-2px;width:9
 section.screen{display:none}section.screen.on{display:block}
 /* accueil */
 .gros-chiffres{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--e2);text-align:center}
-.gros-chiffres .val{font-family:var(--police-affichage);font-size:22px}
+.gros-chiffres .val{font-family:var(--police-affichage);font-size:clamp(15px,5.2vw,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gros-chiffres .lab{font-size:12px;color:var(--texte-secondaire)}
 .importer{border:2px dashed var(--trait);border-radius:var(--rayon-carte);padding:var(--e4);text-align:center;background:var(--fond-carte)}
 .importer.over{background:var(--fond-bloc)}
 .carte-classer{text-align:center}
 .carte-classer .nom{font-family:var(--police-affichage);font-size:var(--t-titre);margin:var(--e2) 0 var(--e1)}
 .carte-classer .question{font-size:var(--t-sous-titre);margin:var(--e3) 0 var(--e4)}
+.carte-classer .pastille{margin:0 auto var(--e2)}
 .boutons{display:flex;gap:var(--e2);flex-wrap:wrap;justify-content:center}
 .boutons button{flex:1;min-width:110px}
 .progres{height:6px;background:var(--fond-bloc);border-radius:3px;overflow:hidden;margin:var(--e3) 0}
@@ -158,6 +167,8 @@ section.screen{display:none}section.screen.on{display:block}
 
 <section class="screen hidden" id="screen-accueil"><div class="page">
   <div id="accueil-chiffres"></div>
+  <div id="boite"></div>
+  <div id="tag-carte"></div>
   <div class="importer" id="drop">
     <p>📥 <b>Importer mes dernières opérations</b></p>
     <p class="mention">Le fichier CSV de La Banque Postale, en le glissant ici ou en le choisissant.</p>
@@ -165,8 +176,6 @@ section.screen{display:none}section.screen.on{display:block}
     <button class="douce" id="btn-choisir" style="margin-top:var(--e2)">Choisir le fichier</button>
     <p class="mention" id="import-msg" style="margin-top:var(--e2)"></p>
   </div>
-  <div id="tag-carte"></div>
-  <div id="boite"></div>
 </div></section>
 
 <section class="screen hidden" id="screen-revue"><div class="page">
@@ -236,7 +245,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.1';
+const APP_VERSION = '0.2.2';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -930,9 +939,11 @@ const github = {
   utf8b64(texte) { return chiffre.b64(new TextEncoder().encode(texte)); },
   b64utf8(b64) { return new TextDecoder().decode(chiffre.unb64(String(b64).replace(/\s+/g, ''))); },
   lireDepot(s) { const m = String(s || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/\/+$/, '').match(/^([\w.-]+)\/([\w.-]+)$/); return m ? { owner: m[1], repo: m[2] } : null; },
+  DELAI_MS: 25000,
   async requete(cfg, methode, chemin, corps) {
     const f = cfg.fetch || globalThis.fetch; let rep;
-    try { rep = await f(github.url(cfg, chemin), { method: methode, headers: Object.assign(github.entetes(cfg.token), corps ? { 'Content-Type': 'application/json' } : {}), body: corps ? JSON.stringify(corps) : undefined }); }
+    const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(cfg.delai || github.DELAI_MS) : undefined;
+    try { rep = await f(github.url(cfg, chemin), { method: methode, headers: Object.assign(github.entetes(cfg.token), corps ? { 'Content-Type': 'application/json' } : {}), body: corps ? JSON.stringify(corps) : undefined, signal }); }
     catch (e) { throw github.erreur('RESEAU', 'GitHub injoignable (' + (e && e.message || 'réseau') + ')'); }
     if (rep.status === 404) return { status: 404, json: null };
     if (rep.status === 401 || rep.status === 403) throw github.erreur('TOKEN', `GitHub refuse le token (${rep.status}) : vérifie qu'il est valide, limité à ce dépôt, avec « Contents » en lecture et écriture`, rep.status);
@@ -1126,8 +1137,12 @@ const backendGitHub = {
   cfg: null, cle: null, kdf: null, sha: null, seq: 0, aad: null, cache: { rules: null, data: null }, timer: null, enAttente: false, enCours: false, sync: 'deconnecte', detail: '', onFusion: null,
   pret() { return !!(this.cfg && this.cle); },
   async lireTexte(nom) { return this.cache[nom] ? serial.stringify(this.cache[nom]) : null; },
-  async ecrireTexte(nom, texte) { this.cache[nom] = JSON.parse(texte); this.planifier(SYNC_DELAI); },
+  async ecrireTexte(nom, texte) { this.cache[nom] = JSON.parse(texte); this.planifier(SYNC_DELAI); this.brouillon(); },
   planifier(delai) { this.enAttente = true; this.majSync('attente'); clearTimeout(this.timer); this.timer = setTimeout(() => this.pousser(), delai); },
+  // brouillon local (v0.2.2) : chaque modification est aussitôt chiffrée et gardée dans le navigateur avec le drapeau « en attente » ;
+  // si Safari gèle ou ferme la page avant l'envoi, le travail est repris au prochain démarrage et envoyé (fusionné s'il le faut)
+  brouillon() { clearTimeout(this.timerBrouillon); this.timerBrouillon = setTimeout(() => this.sauverBrouillon(), 400); },
+  async sauverBrouillon() { if (!this.pret() || !this.cache.rules) return; try { const env = await chiffre.chiffrer(this.cle, coffre.emballer(this.cache.rules, this.cache.data), { schema: coffre.SCHEMA, seq: this.seq, machine, ecrit_le: util.nowIso(), brouillon: true }, this.kdf); await this.garderLocal(env, this.sha, true); } catch { } },
   majSync(s, detail) { this.sync = s; this.detail = detail || ''; rendreSync(); },
   async garderLocal(env, sha, attente) { await idb.set('enveloppe', env); await idb.set('enveloppe.sha', sha); await idb.set('enveloppe.attente', !!attente); },
   async installer(env, sha) { const o = await chiffre.dechiffrer(this.cle, env); const c = coffre.deballer(o.texte); this.cache = c; this.sha = sha; this.seq = o.aad.seq || 0; this.aad = o.aad; this.kdf = { sel: env.kdf.sel, iter: env.kdf.iter }; },
@@ -1145,15 +1160,27 @@ const backendGitHub = {
     }
     if (lu.absent) { this.sha = null; if (this.sync === 'horsligne') this.majSync('synchronise'); return { absent: true }; }
     if (lu.sha === this.sha) { if (this.sync === 'horsligne') this.majSync(this.enAttente ? 'attente' : 'synchronise'); return { change: false }; }
+    // un envoi est en cours : on ne touche à rien, c'est lui qui réglera un éventuel conflit
+    if (this.enCours && this.cache.rules) return { change: false, enCours: true };
     let env; try { env = JSON.parse(lu.texte); } catch { throw chiffre.erreur('FORMAT', 'fichier illisible sur GitHub'); }
+    // du travail attend ici d'être envoyé : la version distante est réunie au cache, jamais substituée (c'était la cause des retours en arrière)
+    if (this.enAttente && this.cache.rules) {
+      const o = await chiffre.dechiffrer(this.cle, env); const distant = coffre.deballer(o.texte);
+      const f = coffre.fusionner(this.cache, distant);
+      this.cache = { rules: f.rules, data: f.data }; this.sha = lu.sha; this.seq = Math.max(this.seq, o.aad.seq || 0); this.aad = o.aad; this.kdf = { sel: env.kdf.sel, iter: env.kdf.iter };
+      this.planifier(SYNC_DELAI); this.brouillon();
+      return { change: true, aad: o.aad, fusion: f.bilan };
+    }
     await this.installer(env, lu.sha); await this.garderLocal(env, lu.sha);
     if (!this.enAttente) this.majSync('synchronise');
     return { change: true, aad: this.aad };
   },
   async pousser() {
     if (!this.pret() || !this.cache.rules) return;
+    // garde-fou : un envoi « en cours » depuis plus d'une minute est un envoi gelé (onglet mis en veille) ; on repart
+    if (this.enCours && Date.now() - (this.debutEnvoi || 0) > 60000) this.enCours = false;
     if (this.enCours) { this.planifier(SYNC_DELAI); return; }
-    clearTimeout(this.timer); this.enCours = true; this.enAttente = false;
+    clearTimeout(this.timer); this.enCours = true; this.debutEnvoi = Date.now(); this.enAttente = false;
     let env, fusion = null;
     try {
       let seq = this.seq + 1;
@@ -1169,12 +1196,13 @@ const backendGitHub = {
         this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}${fusion ? ' (fusion)' : ''}`);
       }
       this.seq = seq; this.aad = env.aad;
-      await this.garderLocal(env, this.sha);
+      // des modifications sont arrivées pendant l'envoi : le brouillon local les garde « en attente » ; sinon la copie locale est à jour
+      if (this.enAttente) await this.sauverBrouillon(); else await this.garderLocal(env, this.sha);
       if (fusion && this.onFusion) await this.onFusion(fusion);
       this.majSync(this.enAttente ? 'attente' : 'synchronise');
     } catch (e) {
       this.enAttente = true;
-      if (e.code === 'RESEAU') { if (env) await this.garderLocal(env, this.sha, true); this.majSync('horsligne'); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); }
+      if (e.code === 'RESEAU') { await this.sauverBrouillon(); this.majSync('horsligne'); clearTimeout(this.timer); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); }
       else { this.majSync('erreur', e.message); toast('Impossible d\'enregistrer en ligne : ' + e.message, 'bad'); }
     } finally { this.enCours = false; }
   },
@@ -1220,7 +1248,8 @@ const store = {
     catch (e) { if (e.code === 'PHRASE') { await idb.set('cle.protegee', null); deconnecterUI('Ta phrase secrète a changé sur un autre appareil : saisis la nouvelle.'); } else toast(e.message, 'bad'); return; }
     if (r.horsligne && !r.cacheLocal) { if (!silencieux) toast('Hors ligne : tu vois la dernière version connue', 'warn'); return; }
     if (r.absent || !r.change) { if (!silencieux) toast('Tout est à jour', 'ok'); if (backendGitHub.enAttente) backendGitHub.envoyerMaintenant(); return; }
-    if (!etat.dirty.rules && !etat.dirty.data) { await store.charger(); if (!silencieux) toast('Mis à jour', 'ok'); return; }
+    if (r.enCours) return;
+    if (!etat.dirty.rules && !etat.dirty.data) { await store.charger(); if (!silencieux && !r.fusion) toast('Mis à jour', 'ok'); if (r.fusion && (r.fusion.autre_seul || r.fusion.prises_autre)) toast('Réuni avec la version de ton autre appareil', 'ok'); return; }
     const f = coffre.fusionner({ rules: etat.rules, data: etat.data }, backendGitHub.cache);
     etat.rules = f.rules; etat.data = f.data; marquer('rules'); marquer('data');
     modele.migrer(etat.rules, etat.data); recategoriser(); toutRendre();
@@ -1238,6 +1267,7 @@ backendGitHub.onFusion = async () => {
 };
 document.addEventListener('visibilitychange', () => { if (!backendGitHub.pret()) return; if (document.visibilityState === 'visible') store.verifier({ silencieux: true }); else backendGitHub.envoyerMaintenant(); });
 window.addEventListener('pagehide', () => backendGitHub.envoyerMaintenant());
+document.addEventListener('freeze', () => backendGitHub.envoyerMaintenant());
 window.addEventListener('beforeunload', e => { if (etat.dirty.rules || etat.dirty.data || backendGitHub.enAttente) { backendGitHub.envoyerMaintenant(); e.preventDefault(); e.returnValue = ''; } });
 
 // ---------- annulation : 20 pas en arrière
@@ -1375,7 +1405,9 @@ async function importerFichiers(files) {
   }
   marquer('data'); recategoriser();
   const aClasser = engine.aClasser(etat.data).length;
-  $('#import-msg').textContent = nouvelles ? `C'est importé. ${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} ligne${nouvelles > 1 ? 's' : ''}, ${aClasser} à classer.` : (lues ? 'Rien de nouveau : tout était déjà là.' : '');
+  const msg = nouvelles ? `C'est importé. ${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} ligne${nouvelles > 1 ? 's' : ''}, ${aClasser} à classer.` : (lues ? 'Rien de nouveau : tout était déjà là.' : '');
+  $('#import-msg').textContent = msg; if (msg) toast(msg, 'ok');
+  try { window.scrollTo(0, 0); } catch { }
   if (soucis.length) toast(soucis.join(' · '), 'bad');
   etat.plusTard = new Set();
   await sauver();
@@ -1406,8 +1438,7 @@ function rendreAccueil() {
   let html = `<div class="carte carte-classer"><p class="mention">${groupes.length} à classer</p><div class="progres"><i style="width:${Math.round(100 * fait / Math.max(total, 1))}%"></i></div>`;
   html += `<div class="nom">${esc(g.nom)}</div><p class="mention">${mnt} · ${quand}</p>`;
   // case d'activité : cochée d'avance si les lignes du groupe le sont déjà (marchand de tissus) ; s'applique à toutes les lignes du groupe
-  const depense = g.ops.some(o => o.montant < 0);
-  const caseTag = depense ? `<label class="ligne" style="justify-content:center;margin:0 0 var(--e3)"><input type="checkbox" id="bx-tag" ${g.ops.every(o => o.tag) ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '';
+  const caseTag = `<label class="ligne" style="justify-content:center;margin:0 0 var(--e3)"><input type="checkbox" id="bx-tag" ${g.ops.every(o => o.tag) ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>`;
   if (g.proposition) {
     html += `<p class="question">${pastille(g.proposition, 48)}<br>C'est ${phraseCat(g.proposition)} ?</p>${caseTag}<div class="boutons"><button class="primaire" id="bx-oui">Oui</button><button id="bx-autre">Autre chose</button><button class="douce" id="bx-tard">Plus tard</button></div>`;
   } else {
@@ -1426,7 +1457,7 @@ function rendreCarteTag(mois) {
   const el = $('#tag-carte'); if (!el) return;
   if (!etat.data.operations.length) { el.innerHTML = ''; return; }
   const b = stats.bilan(etat.data, mois); const t = TAG();
-  el.innerHTML = `<div class="carte"><div class="ligne"><span class="pastille">${t.emoji}</span><span class="pousse"><b>${esc(t.nom)}</b> · ${util.moisLisible(mois)}<br><span class="mention">${b.tagN ? `${b.tagN} ligne${b.tagN > 1 ? 's' : ''}, ${eur(b.tag)}` : 'Rien de marqué pour l\'instant'}${b.revue ? ' · mois passé en revue ✓' : ''}</span></span></span><button class="${b.revue ? '' : 'primaire'}" id="btn-revue">${b.revue ? 'Revoir' : 'Passer le mois en revue'}</button></div></div>`;
+  el.innerHTML = `<div class="carte carte-tag"><span class="pastille">${t.emoji}</span><span class="texte"><b>${esc(t.nom)}</b> · ${util.moisLisible(mois)}<br><span class="mention">${b.tagN ? `${b.tagN} ligne${b.tagN > 1 ? 's' : ''}, ${eur(b.tag)}` : 'Rien de marqué pour l\'instant'}${b.revue ? ' · revu ✓' : ''}</span></span><button class="douce" id="btn-revue">${b.revue ? 'Revoir le mois' : 'Passer le mois en revue'}</button></div>`;
   $('#btn-revue').onclick = () => { etat.moisRevue = mois; montrerEcran('revue'); };
 }
 // tuiles de choix : racines visibles ; une racine qui a des sous-catégories ouvre un second niveau
@@ -1434,7 +1465,7 @@ function tuilesChoix(actuel, codes) { return (codes || catalogue.racines()).map(
 // feuille : choisir une catégorie (puis une sous-catégorie si la racine en a)
 function choisirCategorie(titre, actuel, cb, options) {
   const o = options || {};
-  const avecTag = (o.op && o.op.montant < 0) || o.tagInitial !== undefined && o.tagInitial !== null;
+  const avecTag = !!o.op || (o.tagInitial !== undefined && o.tagInitial !== null);
   const tagInit = o.op ? !!o.op.tag : !!o.tagInitial;
   const caseRegle = (o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : '') + (avecTag ? `<label class="ligne" style="margin-top:var(--e2)"><input type="checkbox" id="fx-tag" ${tagInit ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '');
   const choisi = (code) => { const regle = o.caseRegle ? $('#fx-regle').checked : true; const ft = $('#fx-tag'); if (o.op && ft && ft.checked !== !!o.op.tag) engine.marquer(etat.data, etat.rules, o.op, ft.checked); if (!o.op && ft) { const bt = $('#bx-tag'); if (bt) bt.checked = ft.checked; } fermerFeuille(); cb(code, regle); };
@@ -1593,7 +1624,7 @@ function confirmerFusion(de, vers) {
   $('#fu-oui').onclick = async () => { annulation.prendre('fusion'); try { catalogue.fusionner(etat.rules, etat.data, de, vers); } catch (e) { toast(e.message, 'bad'); return; } marquer('rules'); marquer('data'); fermerFeuille(); recategoriser(); await sauver(); toast('Réunies', 'ok'); };
 }
 // accès pour le scénario de test (tests/scenario.js) ; sans effet pour l'utilisatrice
-window.__app = { etat, importerFichiers, backendGitHub, store, montrerEcran, annulation, sauver, tests, engine, CAT, catalogue, stats };
+window.__app = { etat, importerFichiers, backendGitHub, store, montrerEcran, annulation, sauver, tests, engine, CAT, catalogue, stats, chiffre, coffre, modele, marquer };
 })();
 </script>
 </body>
