@@ -245,7 +245,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.3';
+const APP_VERSION = '0.2.4';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -816,9 +816,10 @@ const stats = {
     for (const o of ops) {
       const code = o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT;
       if (catalogue.interne(code)) continue;
-      if (code === 'REV' || (o.montant > 0 && o.type !== 'avoir' && code === CAT_DEFAUT && o.statut === 'a_valider')) { if (o.montant > 0) revenus += o.montant; else depenses += -o.montant; continue; }
-      depenses += -o.montant;
       const racine = catalogue.racine(code);
+      // revenus : la catégorie Revenus ou l'une de ses sous-catégories ; une entrée encore à classer compte aussi comme revenu
+      if (racine === 'REV' || (o.montant > 0 && o.type !== 'avoir' && code === CAT_DEFAUT && o.statut === 'a_valider')) { if (o.montant > 0) revenus += o.montant; else depenses += -o.montant; continue; }
+      depenses += -o.montant;
       const r = parCat[racine] || (parCat[racine] = { code: racine, montant: 0, n: 0, sous: {} });
       r.montant += -o.montant; r.n++;
       const sc = r.sous[code] || (r.sous[code] = { code, montant: 0, n: 0 }); sc.montant += -o.montant; sc.n++;
@@ -1051,6 +1052,7 @@ const tests = {
       ['sous-catégories : le bilan regroupe par racine avec le détail ; les lignes d\'une racine incluent ses sous-catégories ; nb de lignes', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Péage', '🛣️', null, 'MOB'); engine.corriger(j.d, j.r, 'T', j.par('RETRAIT'), { categorie: c, creerRegle: false }); engine.corriger(j.d, j.r, 'T', j.par('BOUTIQUE INCONNUE'), { categorie: 'MOB', creerRegle: false }); const b = stats.bilan(j.d, '2026-10'); const mob = b.parCat.find(x => x.code === 'MOB'); const ok = mob.montant === 49 && mob.sous.length === 2 && mob.sous.find(x => x.code === c).montant === 40 && !b.parCat.some(x => x.code === c) && stats.lignes(j.d, '2026-10', ['MOB']).length === 2 && catalogue.nbLignes(j.d, 'MOB', '2026-10') === 2 && catalogue.nbLignes(j.d, c, '2026-10') === 1; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
       ['sous-catégories : masquer la racine masque les enfants ; réunir une racine déplace ses sous-catégories ; pas de réunion avec son propre enfant', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Péage', '🛣️', null, 'MOB'); catalogue.masquer(j.r, 'MOB', true); const ok1 = CAT[c].masque && !catalogue.visibles().includes(c); catalogue.masquer(j.r, 'MOB', false); let ok2 = false; try { catalogue.fusionner(j.r, j.d, 'MOB', c); } catch { ok2 = true; } catalogue.fusionner(j.r, j.d, 'MOB', 'LOIS.SHOPPING'); const ok3 = CAT[c].parent === 'LOIS.SHOPPING' && !CAT[c].masque; catalogue.appliquer(modele.rulesDefaut('T')); return ok1 && ok2 && ok3; }],
       ['migration : anciens ajouts à 5 champs et anciennes lignes sans marqueur complétés', () => { const r = modele.rulesDefaut('T'); r.catalogue.ajouts.push(['CHAT', 'Chat', '🐱', '#123456', false]); delete r.tagMarchands; delete r.config.tag; const d = modele.dataDefaut('T'); delete d.revues; d.operations.push(modele.op({ id: 'x', date: '2026-10-01', libelle: 'x', cle: 'X', type: 'carte', montant: -1 })); delete d.operations[0].tag; const m = modele.migrer(r, d); const ok = m && r.catalogue.ajouts[0].length === 6 && r.tagMarchands && r.config.tag.nom === 'Polie' && d.revues && d.operations[0].tag === false; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      ['sous-catégorie de Revenus : comptée dans les revenus, pas dans les dépenses (bug v0.2.3)', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Salaire', '💼', null, 'REV'); const avant = stats.bilan(j.d, '2026-10'); engine.corriger(j.d, j.r, 'T', j.par('PAYE DU MOIS'), { categorie: c, creerRegle: false }); const b = stats.bilan(j.d, '2026-10'); const ok = b.revenus === avant.revenus && b.depenses === avant.depenses && !b.parCat.some(x => x.code === 'REV' || x.code === c); catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
       // v0.2 — période annuelle
       ['analyse annuelle : bilan de l\'année = somme des mois, catégories regroupées, lignes de la période ; libellés', () => { const { d } = J(); const a = stats.bilanPeriode(d, '2026'), o = stats.bilan(d, '2026-10'), sep = stats.bilan(d, '2026-09'); return stats.annees(d).join() === '2026' && stats.moisDe(d, '2026').length === 2 && a.nbMois === 2 && a.depenses === util.r2(o.depenses + sep.depenses) && a.parCat.find(c => c.code === 'ALIM.COURSES').montant === util.r2(84.2 + 30) && stats.lignesPeriode(d, '2026', ['ALIM.COURSES']).length === 3 && stats.periodeLisible('2026') === 'Année 2026' && stats.periodeLisible('2026-10') === 'Octobre 2026' && JSON.stringify(stats.bilanPeriode(d, '2026-10')) === JSON.stringify(o); }]
     ];
