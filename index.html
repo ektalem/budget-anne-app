@@ -51,9 +51,23 @@ header.haut .badge{flex:none}
 .revue-ligne{display:flex;align-items:center;gap:var(--e3);background:var(--fond-carte);border-radius:var(--rayon);padding:var(--e2) var(--e3);margin:var(--e1) 0;cursor:pointer}
 .revue-ligne input{width:24px;height:24px;flex:none;accent-color:var(--accent)}
 .revue-ligne.on{background:var(--fond-bloc)}
-.tuile.sous{min-height:64px;background:var(--fond-page);border:1px dashed var(--trait)}
-.tuile.sous .emo{width:28px;height:28px;font-size:15px}
-.tuile .parent{font-size:11px;color:var(--texte-secondaire)}
+/* Mes catégories : une carte par catégorie, ses sous-catégories en pastilles dessous */
+.cat-liste{display:flex;flex-direction:column;gap:var(--e2)}
+.cat-carte{background:var(--fond-carte);border-radius:var(--rayon-carte);padding:var(--e3) var(--e4);border:1px solid transparent;box-shadow:inset 6px 0 0 var(--couleur,var(--trait))}
+.cat-carte.cible{border-color:var(--accent);background:var(--fond-bloc)}
+.cat-carte .entete{display:flex;align-items:center;gap:var(--e3);width:100%;border:0;background:none;padding:0;text-align:left;min-height:var(--zone-tactile);cursor:pointer}
+.cat-carte .entete .emo{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none}
+.cat-carte .entete .titre{flex:1 1 0;min-width:0}
+.cat-carte .entete .nom{display:block;font-weight:600;font-size:var(--t-texte);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-carte .entete .n{display:block;font-size:var(--t-mention);color:var(--texte-secondaire)}
+.cat-carte .entete .chev{color:var(--texte-secondaire);font-size:20px;flex:none;padding:0 var(--e1)}
+.cat-carte .sous{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e2) 0 0 56px;justify-content:flex-start}
+.cat-carte .sous button{min-height:36px;border-radius:999px;padding:4px var(--e3) 4px var(--e2);font-size:var(--t-mention);border:1px solid transparent;background:var(--sous-fond,var(--fond-bloc));display:inline-flex;align-items:center;gap:6px;max-width:100%}
+.cat-carte .sous button .lib{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-carte .sous button .n{color:var(--texte-secondaire);font-size:12px}
+.cat-carte .sous button.plus{background:transparent;border:1px dashed var(--trait);color:var(--texte-secondaire);flex:0 0 auto;min-width:0}
+.cat-ajout{width:100%;border:2px dashed var(--trait);background:transparent;border-radius:var(--rayon-carte);min-height:56px;color:var(--texte-secondaire);font-weight:600}
+@media (max-width:380px){.cat-carte .sous{margin-left:0}}
 .sous-liste{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e2) 0 0}
 .sous-liste button{min-height:36px;border-radius:999px;font-size:var(--t-mention);padding:4px var(--e3)}
 .ligne{display:flex;align-items:center;gap:var(--e3)}
@@ -122,7 +136,7 @@ section.screen{display:none}section.screen.on{display:block}
 #toasts{position:fixed;left:0;right:0;bottom:calc(72px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:var(--e2);z-index:40;pointer-events:none}
 .toast{background:var(--marine);color:var(--blanc);border-radius:999px;padding:var(--e2) var(--e4);max-width:92%;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 .toast.bad{background:#9c2a24}.toast.ok{background:var(--positif)}
-#annuler-bar{position:fixed;left:0;right:0;top:calc(var(--e2) + env(safe-area-inset-top));display:flex;justify-content:center;z-index:25;pointer-events:none}
+#annuler-bar{position:fixed;left:0;right:0;top:calc(68px + env(safe-area-inset-top));display:flex;justify-content:center;z-index:25;pointer-events:none}
 #annuler-bar button{pointer-events:auto;background:var(--marine);color:var(--blanc);border-color:var(--marine);border-radius:999px}
 /* connexion */
 #ecran-connexion{max-width:420px;margin:0 auto;padding:var(--e6) var(--e4)}
@@ -202,8 +216,8 @@ section.screen{display:none}section.screen.on{display:block}
 
 <section class="screen hidden" id="screen-plus"><div class="page">
   <h2>🏷️ Mes catégories</h2>
-  <p class="mention" style="margin:var(--e1) 0 var(--e3)">Touche une catégorie pour la modifier. Glisse-la sur une autre pour les réunir.</p>
-  <div class="tuiles" id="tuiles"></div>
+  <p class="mention" style="margin:var(--e1) 0 var(--e3)">Touche une catégorie ou une sous-catégorie pour la modifier. Glisse une carte sur une autre pour les réunir.</p>
+  <div class="cat-liste" id="tuiles"></div>
   <div id="tuiles-masquees"></div>
   <h2 style="margin-top:var(--e6)">⚙️ Réglages</h2>
   <div class="carte">
@@ -245,7 +259,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.4';
+const APP_VERSION = '0.2.5';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -1592,13 +1606,22 @@ const EMOJIS = ['🏠', '💶', '📱', '🛒', '🍽️', '🚗', '🛍️', '�
 function rendrePlus() {
   const mois = stats.dernierMois(etat.data);
   const vis = catalogue.visibles(), masq = CATALOGUE.map(x => x[0]).filter(c => CAT[c].masque);
-  $('#tuiles').innerHTML = vis.map(code => { const c = CAT[code]; return `<div class="tuile ${c.parent ? 'sous' : ''}" draggable="true" data-code="${code}" role="button" tabindex="0">${c.parent ? `<span class="parent">↳ ${esc(CAT[c.parent].libelle)}</span>` : ''}<span class="emo" style="background:${c.couleur}33">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span><span class="n">${catalogue.nbLignes(etat.data, code, mois)} ce mois-ci</span></div>`; }).join('') + `<button class="tuile ajout" id="tuile-ajout"><span class="emo">➕</span><span class="nom">Ajouter</span></button>`;
+  const nb = (code) => { const n = catalogue.nbLignes(etat.data, code, mois); return n ? `${n} ce mois-ci` : 'rien ce mois-ci'; };
+  const racines = vis.filter(code => !CAT[code].parent);
+  $('#tuiles').innerHTML = racines.map(code => {
+    const c = CAT[code]; const enfants = catalogue.enfants(code).filter(k => !CAT[k].masque);
+    const pastilles = enfants.map(k => { const e = CAT[k]; const n = catalogue.nbLignes(etat.data, k, mois); return `<button data-code="${k}" draggable="true" style="--sous-fond:${e.couleur}1f"><span>${e.emoji}</span><span class="lib">${esc(e.libelle)}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`; }).join('');
+    const plus = code === CAT_DEFAUT || !enfants.length ? '' : `<button class="plus" data-sous-de="${code}" aria-label="Ajouter une sous-catégorie">＋</button>`;
+    return `<div class="cat-carte" draggable="true" data-code="${code}" style="--couleur:${c.couleur}"><button class="entete" data-code="${code}"><span class="emo" style="background:${c.couleur}26">${c.emoji}</span><span class="titre"><span class="nom">${esc(c.libelle)}</span><span class="n">${nb(code)}${enfants.length ? ` · ${enfants.length} sous-catégorie${enfants.length > 1 ? 's' : ''}` : ''}</span></span><span class="chev">›</span></button>${pastilles ? `<div class="sous">${pastilles}${plus}</div>` : ''}</div>`;
+  }).join('') + `<button class="cat-ajout" id="tuile-ajout">＋ Nouvelle catégorie</button>`;
   $('#tuiles-masquees').innerHTML = masq.length ? `<p class="mention" style="margin-top:var(--e4)">Masquées : ${masq.map(code => `<button class="lien" data-code="${code}">${CAT[code].emoji} ${esc(CAT[code].libelle)}</button>`).join(' ')}</p>` : '';
   $('#tuiles-masquees').querySelectorAll('button').forEach(x => { x.onclick = async () => { annulation.prendre('afficher'); catalogue.masquer(etat.rules, x.dataset.code, false); marquer('rules'); await sauver(); }; });
-  $('#tuiles').querySelectorAll('.tuile[data-code]').forEach(t => {
-    t.onclick = () => actionsCategorie(t.dataset.code);
-    t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actionsCategorie(t.dataset.code); } };
-    t.ondragstart = e => { e.dataTransfer.setData('text/plain', t.dataset.code); };
+  $('#tuiles').querySelectorAll('.entete[data-code], .sous button[data-code]').forEach(b => { b.onclick = (e) => { e.stopPropagation(); actionsCategorie(b.dataset.code); }; });
+  $('#tuiles').querySelectorAll('.sous button[data-sous-de]').forEach(b => { b.onclick = (e) => { e.stopPropagation(); ajouterCategorie(b.dataset.sousDe); }; });
+  $('#tuiles').querySelectorAll('[draggable][data-code]').forEach(t => {
+    t.ondragstart = e => { e.stopPropagation(); e.dataTransfer.setData('text/plain', t.dataset.code); };
+  });
+  $('#tuiles').querySelectorAll('.cat-carte[data-code]').forEach(t => {
     t.ondragover = e => { e.preventDefault(); t.classList.add('cible'); };
     t.ondragleave = () => t.classList.remove('cible');
     t.ondrop = e => { e.preventDefault(); t.classList.remove('cible'); const de = e.dataTransfer.getData('text/plain'); if (de && de !== t.dataset.code) confirmerFusion(de, t.dataset.code); };
