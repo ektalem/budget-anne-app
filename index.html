@@ -122,7 +122,7 @@ section.screen{display:none}section.screen.on{display:block}
 #toasts{position:fixed;left:0;right:0;bottom:calc(72px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:var(--e2);z-index:40;pointer-events:none}
 .toast{background:var(--marine);color:var(--blanc);border-radius:999px;padding:var(--e2) var(--e4);max-width:92%;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 .toast.bad{background:#9c2a24}.toast.ok{background:var(--positif)}
-#annuler-bar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:25;pointer-events:none}
+#annuler-bar{position:fixed;left:0;right:0;top:calc(var(--e2) + env(safe-area-inset-top));display:flex;justify-content:center;z-index:25;pointer-events:none}
 #annuler-bar button{pointer-events:auto;background:var(--marine);color:var(--blanc);border-color:var(--marine);border-radius:999px}
 /* connexion */
 #ecran-connexion{max-width:420px;margin:0 auto;padding:var(--e6) var(--e4)}
@@ -245,7 +245,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.2';
+const APP_VERSION = '0.2.3';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -622,7 +622,8 @@ const modele = {
       const i = parId.get(a.id);
       if (!i) { res.operations.push(JSON.parse(JSON.stringify(a))); bilan.autre_seul++; continue; }
       vus.add(a.id); bilan.communes++;
-      const g = rang(a) > rang(i) ? a : i; if (g === a) bilan.prises_autre++;
+      // la plus avancée gagne ; à égalité, la modifiée le plus récemment (deux appareils ou deux onglets) ; sinon « ici »
+      const g = rang(a) !== rang(i) ? (rang(a) > rang(i) ? a : i) : ((a.modifie || '') > (i.modifie || '') ? a : i); if (g === a) bilan.prises_autre++;
       const o = JSON.parse(JSON.stringify(g));
       // marqueur posé à la main d'un côté seulement : il est repris
       const p = g === a ? i : a; if (o.tag_src !== 'main' && p.tag_src === 'main') { o.tag = p.tag; o.tag_src = 'main'; }
@@ -745,7 +746,7 @@ const engine = {
   // cocher / décocher une ligne dans la revue : la ligne est fixée à la main, le marchand apprend
   marquer(data, rules, op, valeur) {
     const v = !!valeur; if (op.tag === v && op.tag_src === 'main') return;
-    op.tag = v; op.tag_src = 'main';
+    op.tag = v; op.tag_src = 'main'; op.modifie = util.nowIso();
     rules.tagMarchands = rules.tagMarchands || {};
     const m = rules.tagMarchands[op.cle] || (rules.tagMarchands[op.cle] = { oui: 0, non: 0 });
     if (v) m.oui++; else m.non++;
@@ -780,7 +781,7 @@ const engine = {
   },
   // correction manuelle : la ligne est classée, et une règle est apprise (exacte sur le marchand, ou sur le nom du tiers pour un virement)
   corriger(data, rules, machine, op, choix) {
-    op.categorie = choix.categorie; op.statut = 'valide'; op.propositions = []; op.note = null;
+    op.categorie = choix.categorie; op.statut = 'valide'; op.propositions = []; op.note = null; op.modifie = util.nowIso();
     if (choix.creerRegle === false) { op.regle_id = null; return null; }
     const regle = { id: modele.nouvelId(rules, machine), match: 'exact', pattern: op.cle, sens: engine.sens(op), categorie: choix.categorie, source: 'user', actif: true, hits: 0, cree: util.nowIso().slice(0, 10), modifie: util.nowIso().slice(0, 10) };
     if (op.tiers && /^virement_/.test(op.type)) { regle.match = 'tiers'; regle.pattern = op.tiers; regle.sens = 'any'; rules.tiers[op.tiers] = { categorie: choix.categorie }; }
@@ -845,8 +846,8 @@ const stats = {
   lignesPeriode(data, periode, codes, filtre) { return stats.moisDe(data, periode).flatMap(m => stats.lignes(data, m, codes, filtre)).sort((a, b) => b.date.localeCompare(a.date)); },
   // camembert : au plus `max` parts, le reste regroupé dans « Autres »
   camembert(bilan, max) {
-    const n = max || 8; const l = bilan.parCat;
-    if (l.length <= n) return l.map(c => ({ code: c.code, montant: c.montant, codes: [c.code], sous: c.sous || [] }));
+    const l = bilan.parCat; const n = max || 0;
+    if (!n || l.length <= n) return l.map(c => ({ code: c.code, montant: c.montant, codes: [c.code], sous: c.sous || [] }));
     const tete = l.slice(0, n - 1).map(c => ({ code: c.code, montant: c.montant, codes: [c.code], sous: c.sous || [] }));
     const reste = l.slice(n - 1);
     tete.push({ code: 'AUTRES', montant: util.r2(reste.reduce((s, c) => s + c.montant, 0)), codes: reste.map(c => c.code) });
@@ -1029,7 +1030,8 @@ const tests = {
       ['confiance : une proposition confirmée 3 fois (sans règle) passe en auto ensuite, pas avant', () => { const L = (d) => `${d};"ACHAT CB SPOTIFY 01.10.26 CARTE NUMERO 123";-10,99`; const t = tests.csvFictif().split('\r\n').slice(0, 7).concat([L('01/07/2026'), L('01/08/2026'), L('01/09/2026'), L('01/10/2026')]).join('\r\n'); const j = J(t); const ops = j.d.operations.slice().sort((a, b) => a.date.localeCompare(b.date)); const ok0 = ops.every(o => o.statut === 'a_valider'); for (const o of ops.slice(0, 2)) engine.corriger(j.d, j.r, 'T', o, { categorie: 'ABO', creerRegle: false }); engine.run(j.d, j.r); const ok1 = ops[2].statut === 'a_valider'; engine.corriger(j.d, j.r, 'T', ops[2], { categorie: 'ABO', creerRegle: false }); engine.run(j.d, j.r); return ok0 && ok1 && ops[3].statut === 'auto' && ops[3].regle_id === 'confiance'; }],
       ['boîte : groupes par marchand + proposition, les plus nombreux d\'abord, compte du mois', () => { const { d } = J(); const g = engine.groupes(d); return g.length >= 3 && g[0].ops.length >= g[1].ops.length && g.every(x => x.nom && x.ops.length) && g.find(x => x.nom === 'Spotify').ceMois === 1; }],
       ['bilan du mois : revenus, dépenses, reste, épargne ; internes exclus ; par catégorie trié', () => { const j = J(); j.r.config.titulaire = 'Anne Dupont'; engine.run(j.d, j.r); const b = stats.bilan(j.d, '2026-10'); const dep = 42.1 * 2 + 35 - 35 + 19.99 * 2 + 25 + 10.99 + 12.5 + 40 + 9 + 6.5; return b.revenus === 1800 && b.depenses === util.r2(dep) && b.reste === util.r2(1800 - dep) && b.parCat.every((c, i) => c.montant > 0 && (!i || c.montant <= b.parCat[i - 1].montant)) && b.parCat.find(c => c.code === 'ALIM.COURSES').montant === 84.2 && !b.parCat.some(c => c.code === 'EPG'); }],
-      ['camembert : au-delà de 8 parts, le reste est regroupé dans « Autres » ; sommes conservées', () => { const b = { parCat: Array.from({ length: 11 }, (_, i) => ({ code: 'C' + i, montant: 100 - i, n: 1 })) }; const c = stats.camembert(b, 8); const tot = b.parCat.reduce((s, x) => s + x.montant, 0); return c.length === 8 && c[7].code === 'AUTRES' && c[7].codes.length === 4 && util.r2(c.reduce((s, x) => s + x.montant, 0)) === tot && stats.camembert({ parCat: b.parCat.slice(0, 8) }, 8).length === 8; }],
+      ['camembert : toutes les parts par défaut ; regroupement « Autres » seulement si un maximum est demandé, sommes conservées', () => { const b = { parCat: Array.from({ length: 11 }, (_, i) => ({ code: 'C' + i, montant: 100 - i, n: 1 })) }; const c = stats.camembert(b, 8); const tot = b.parCat.reduce((s, x) => s + x.montant, 0); return stats.camembert(b).length === 11 && stats.camembert(b, 0).length === 11 && c.length === 8 && c[7].code === 'AUTRES' && c[7].codes.length === 4 && util.r2(c.reduce((s, x) => s + x.montant, 0)) === tot; }],
+      ['fusion : deux appareils ont classé la même ligne différemment → la modification la plus récente gagne, quel que soit le côté', () => { const a = tests.jeu(), b = tests.jeu(); const oa = a.par('BOUTIQUE INCONNUE'), ob = b.par('BOUTIQUE INCONNUE'); engine.corriger(a.d, a.r, 'PC', oa, { categorie: 'LOIS.SHOPPING', creerRegle: false }); oa.modifie = '2026-10-31T10:00:00.000Z'; engine.corriger(b.d, b.r, 'TEL', ob, { categorie: 'LOIS.CADEAUX', creerRegle: false }); ob.modifie = '2026-10-31T11:00:00.000Z'; const f1 = modele.fusionner(a.d, b.d), f2 = modele.fusionner(b.d, a.d); return f1.data.operations.find(o => o.id === oa.id).categorie === 'LOIS.CADEAUX' && f2.data.operations.find(o => o.id === oa.id).categorie === 'LOIS.CADEAUX'; }],
       ['opérations par jour : mois demandé, du plus récent au plus ancien', () => { const { d } = J(); const j = stats.parJour(d, '2026-10'); return j[0].date === '2026-10-28' && j[0].ops.length === 2 && j[j.length - 1].date === '2026-10-17' && stats.mois(d).join() === '2026-09,2026-10'; }],
       ['catalogue : ajouter (nom libre → code unique), renommer, emoji/couleur, masquer, ordre ; codes livrés jamais supprimés', () => { const r = modele.rulesDefaut('T'); const c = catalogue.ajouter(r, 'Chat & véto', '🐱', '#123456'); const c2 = catalogue.ajouter(r, 'Chat & véto', '🐱', '#123456'); catalogue.renommer(r, 'ALIM.COURSES', 'Supermarché'); catalogue.styler(r, 'ALIM.COURSES', '🥕', '#654321'); catalogue.masquer(r, 'LOIS.CADEAUX', true); catalogue.deplacer(r, 'SANTE', -1); const ok = c === 'CHAT-VETO' && c2 === 'CHAT-VETO-2' && CAT[c].libelle === 'Chat & véto' && CAT['ALIM.COURSES'].libelle === 'Supermarché' && CAT['ALIM.COURSES'].emoji === '🥕' && CAT['ALIM.COURSES'].couleur === '#654321' && !catalogue.visibles().includes('LOIS.CADEAUX') && CATALOGUE.length === 15 && CATALOGUE_BASE.every(x => CAT[x[0]]); let ok2 = false; try { catalogue.masquer(r, 'AUTRE', true); } catch { ok2 = true; } catalogue.appliquer(modele.rulesDefaut('T')); return ok && ok2; }],
       ['catalogue : fusion A → B déplace les lignes (classées comprises), les règles et les tiers ; A masqué ; journal daté', () => { const j = J(); engine.corriger(j.d, j.r, 'T', j.par('PAUL MARTIN'), { categorie: 'LOIS.CADEAUX' }); const n = catalogue.fusionner(j.r, j.d, 'LOIS.CADEAUX', 'LOIS.SORTIES'); const ok = n === 1 && j.par('PAUL MARTIN').categorie === 'LOIS.SORTIES' && j.r.rules.find(r => r.source === 'user').categorie === 'LOIS.SORTIES' && j.r.tiers['PAUL MARTIN'].categorie === 'LOIS.SORTIES' && CAT['LOIS.CADEAUX'].masque && j.r.catalogue.fusions[0].de === 'LOIS.CADEAUX' && /^\d{4}-\d\d-\d\d$/.test(j.r.catalogue.fusions[0].date); catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
@@ -1186,24 +1188,35 @@ const backendGitHub = {
       let seq = this.seq + 1;
       const enveloppe = async () => chiffre.chiffrer(this.cle, coffre.emballer(this.cache.rules, this.cache.data), { schema: coffre.SCHEMA, seq, machine, ecrit_le: util.nowIso() }, this.kdf);
       env = await enveloppe();
-      try { this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}`); }
-      catch (e) {
-        if (e.code !== 'CONFLIT') throw e;
-        const lu = await github.lire(this.cfg);
-        if (!lu.absent) { const o = await chiffre.dechiffrer(this.cle, JSON.parse(lu.texte)); const f = coffre.fusionner(this.cache, coffre.deballer(o.texte)); this.cache = { rules: f.rules, data: f.data }; fusion = { bilan: f.bilan, aad: o.aad }; seq = Math.max(seq, (o.aad.seq || 0) + 1); }
-        this.sha = lu.absent ? null : lu.sha;
-        env = await enveloppe();
-        this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}${fusion ? ' (fusion)' : ''}`);
+      // jusqu'à quatre tentatives : un autre exemplaire de la page (autre onglet, autre appareil) peut écrire entre notre lecture et notre écriture
+      let ecrit = false;
+      for (let essai = 0; essai < 4 && !ecrit; essai++) {
+        try { this.sha = await github.ecrire(this.cfg, JSON.stringify(env), this.sha, `store seq=${seq} machine=${machine}${fusion ? ' (fusion)' : ''}`); ecrit = true; }
+        catch (e) {
+          if (e.code !== 'CONFLIT') throw e;
+          const lu = await github.lire(this.cfg);
+          if (!lu.absent) { const o = await chiffre.dechiffrer(this.cle, JSON.parse(lu.texte)); const f = coffre.fusionner(this.cache, coffre.deballer(o.texte)); this.cache = { rules: f.rules, data: f.data }; fusion = { bilan: f.bilan, aad: o.aad }; seq = Math.max(seq, (o.aad.seq || 0) + 1); }
+          this.sha = lu.absent ? null : lu.sha;
+          env = await enveloppe();
+          if (essai < 3) await new Promise(r => setTimeout(r, 300 + Math.random() * 700));
+        }
       }
+      if (!ecrit) throw github.erreur('CONFLIT', 'quelqu\'un d\'autre écrit en même temps');
+      this.echecs = 0;
       this.seq = seq; this.aad = env.aad;
       // des modifications sont arrivées pendant l'envoi : le brouillon local les garde « en attente » ; sinon la copie locale est à jour
       if (this.enAttente) await this.sauverBrouillon(); else await this.garderLocal(env, this.sha);
       if (fusion && this.onFusion) await this.onFusion(fusion);
       this.majSync(this.enAttente ? 'attente' : 'synchronise');
     } catch (e) {
-      this.enAttente = true;
-      if (e.code === 'RESEAU') { await this.sauverBrouillon(); this.majSync('horsligne'); clearTimeout(this.timer); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); }
-      else { this.majSync('erreur', e.message); toast('Impossible d\'enregistrer en ligne : ' + e.message, 'bad'); }
+      // quoi qu'il arrive, le travail reste ici (brouillon chiffré) et on réessaie tout seul ; aucun état bloqué
+      this.enAttente = true; this.echecs = (this.echecs || 0) + 1;
+      await this.sauverBrouillon();
+      clearTimeout(this.timer);
+      if (e.code === 'RESEAU') { this.majSync('horsligne'); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); }
+      else if (e.code === 'CONFLIT') { this.majSync('attente'); this.timer = setTimeout(() => this.pousser(), 2000 + Math.random() * 3000); }
+      else if (e.code === 'TOKEN' || e.code === 'DEPOT') { this.majSync('erreur', e.message); toast('Impossible d\'enregistrer en ligne : ' + e.message, 'bad'); }
+      else { this.majSync('attente', e.message); this.timer = setTimeout(() => this.pousser(), SYNC_RETENTATIVE); if (this.echecs === 3) toast('L\'enregistrement en ligne n\'a pas marché trois fois de suite, je continue d\'essayer. Ton travail est gardé sur cet appareil.', 'warn'); }
     } finally { this.enCours = false; }
   },
   async envoyerMaintenant() { if (this.enAttente && !this.enCours) { clearTimeout(this.timer); await this.pousser(); } },
@@ -1267,6 +1280,8 @@ backendGitHub.onFusion = async () => {
 };
 document.addEventListener('visibilitychange', () => { if (!backendGitHub.pret()) return; if (document.visibilityState === 'visible') store.verifier({ silencieux: true }); else backendGitHub.envoyerMaintenant(); });
 window.addEventListener('pagehide', () => backendGitHub.envoyerMaintenant());
+window.addEventListener('pageshow', e => { if (!e.persisted || !backendGitHub.pret()) return; backendGitHub.enCours = false; if (backendGitHub.enAttente) backendGitHub.planifier(1000); store.verifier({ silencieux: true }); });
+window.addEventListener('online', () => { if (backendGitHub.pret() && backendGitHub.enAttente) backendGitHub.planifier(1000); });
 document.addEventListener('freeze', () => backendGitHub.envoyerMaintenant());
 window.addEventListener('beforeunload', e => { if (etat.dirty.rules || etat.dirty.data || backendGitHub.enAttente) { backendGitHub.envoyerMaintenant(); e.preventDefault(); e.returnValue = ''; } });
 
@@ -1376,7 +1391,17 @@ $('#btn-export').onclick = () => {
   toast('Copie téléchargée. Elle n\'est pas chiffrée : garde-la pour toi.');
 };
 $('#btn-tests').onclick = async () => { const r = await tests.runAsync(); const ok = r.filter(x => x.ok).length; $('#tests').innerHTML = `<p>${ok === r.length ? '✅ Tout marche' : '⚠️ Quelque chose cloche'} (${ok}/${r.length})</p>` + (ok === r.length ? '' : `<ul>${r.filter(x => !x.ok).map(x => `<li>${esc(x.nom)}${x.err ? ' — ' + esc(x.err) : ''}</li>`).join('')}</ul>`); };
+// mise à jour : la page servie peut être une vieille copie gardée par le navigateur ; on compare la version en ligne et on propose de recharger
+const majApp = { derniere: 0,
+  async verifier() {
+    if (!/^https?:/.test(location.protocol) || Date.now() - majApp.derniere < 600000) return; majApp.derniere = Date.now();
+    try { const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); const m = /APP_VERSION = '([0-9.]+)'/.exec(t); if (m && m[1] !== APP_VERSION) majApp.proposer(m[1]); } catch { }
+  },
+  proposer(v) { if ($('#maj-bar')) return; const b = document.createElement('div'); b.id = 'maj-bar'; b.className = 'toast ok'; b.style.pointerEvents = 'auto'; b.innerHTML = `Une nouvelle version est prête (${esc(v)}). <button class="lien" style="color:#fff;min-height:0;padding:0 6px">Mettre à jour</button>`; b.querySelector('button').onclick = async () => { await backendGitHub.envoyerMaintenant(); location.reload(); }; $('#toasts').appendChild(b); }
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') majApp.verifier(); });
 (async function demarrage() {
+  majApp.verifier();
   const prefs = ghPrefs.lire();
   $('#co-machine').value = machine;
   if (prefs) { $('#co-depot').value = `${prefs.owner}/${prefs.repo}`; $('#co-branche').value = prefs.branche || 'main'; $('#co-souvenir').checked = prefs.souvenir !== false; $('#co-code-label').classList.toggle('hidden', prefs.souvenir === false); }
@@ -1533,7 +1558,7 @@ function rendreAnalyse() {
   puces($('#an-periodes'), [['mois', 'Par mois'], ['annee', 'Année ' + (etat.moisAnalyse || stats.dernierMois(etat.data)).slice(0, 4)]], etat.periodeAnalyse, k => { etat.periodeAnalyse = k; etat.detailCodes = null; rendreAnalyse(); });
   puces($('#an-filtre'), filtresTag(), etat.filtreAnalyse, k => { etat.filtreAnalyse = k; etat.detailCodes = null; rendreAnalyse(); });
   const b = stats.bilanPeriode(etat.data, mois, etat.filtreAnalyse);
-  const parts = stats.camembert(b, 8);
+  const parts = stats.camembert(b, 0);
   $('#an-chiffres').innerHTML = chiffresMois(mois, etat.filtreAnalyse).replace(/^<div class="gros-chiffres">|<\/div>$/g, '') + (b.tag && etat.filtreAnalyse === 'tout' ? `<div style="grid-column:1/-1" class="mention">dont ${tagEtiquette()} : ${eur(b.tag)}${b.tagEntrees ? ` de dépenses, ${eur(b.tagEntrees)} d'entrées` : ''}</div>` : '') + (b.nbMois > 1 ? `<div style="grid-column:1/-1" class="mention">${b.nbMois} mois · ${eur(util.r2(b.depenses / b.nbMois))} de dépenses par mois en moyenne</div>` : '');
   const couleur = (p) => p.code === 'AUTRES' ? '#c9c3c7' : cat(p.code).couleur;
   const nom = (p) => p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle;
