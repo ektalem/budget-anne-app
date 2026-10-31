@@ -236,7 +236,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.0';
+const APP_VERSION = '0.2.1';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -1405,16 +1405,20 @@ function rendreAccueil() {
   const quand = n === 1 ? util.jourLisible(g.ops[0].date) : (g.ceMois === n ? 'ce mois-ci' : `depuis ${util.moisLisible(util.mois(g.ops[g.ops.length - 1].date)).toLowerCase()}`);
   let html = `<div class="carte carte-classer"><p class="mention">${groupes.length} à classer</p><div class="progres"><i style="width:${Math.round(100 * fait / Math.max(total, 1))}%"></i></div>`;
   html += `<div class="nom">${esc(g.nom)}</div><p class="mention">${mnt} · ${quand}</p>`;
+  // case d'activité : cochée d'avance si les lignes du groupe le sont déjà (marchand de tissus) ; s'applique à toutes les lignes du groupe
+  const depense = g.ops.some(o => o.montant < 0);
+  const caseTag = depense ? `<label class="ligne" style="justify-content:center;margin:0 0 var(--e3)"><input type="checkbox" id="bx-tag" ${g.ops.every(o => o.tag) ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '';
   if (g.proposition) {
-    html += `<p class="question">${pastille(g.proposition, 48)}<br>C'est ${phraseCat(g.proposition)} ?</p><div class="boutons"><button class="primaire" id="bx-oui">Oui</button><button id="bx-autre">Autre chose</button><button class="douce" id="bx-tard">Plus tard</button></div>`;
+    html += `<p class="question">${pastille(g.proposition, 48)}<br>C'est ${phraseCat(g.proposition)} ?</p>${caseTag}<div class="boutons"><button class="primaire" id="bx-oui">Oui</button><button id="bx-autre">Autre chose</button><button class="douce" id="bx-tard">Plus tard</button></div>`;
   } else {
-    html += `<p class="question">C'est quoi ?</p><div class="tuiles" id="bx-tuiles">${tuilesChoix(null)}</div><div class="boutons" style="margin-top:var(--e3)"><button class="douce" id="bx-tard">Plus tard</button></div>`;
+    html += `<p class="question">C'est quoi ?</p>${caseTag}<div class="tuiles" id="bx-tuiles">${tuilesChoix(null)}</div><div class="boutons" style="margin-top:var(--e3)"><button class="douce" id="bx-tard">Plus tard</button></div>`;
   }
   html += `</div>`;
   b.innerHTML = html;
-  const classer = async (code) => { annulation.prendre('classer'); for (const o of g.ops) engine.corriger(etat.data, etat.rules, machine, o, { categorie: code }); marquer('data'); marquer('rules'); recategoriser(); await sauver(); };
+  const tagCoche = () => { const c = $('#bx-tag'); return c ? c.checked : null; };
+  const classer = async (code) => { annulation.prendre('classer'); const tag = tagCoche(); for (const o of g.ops) { engine.corriger(etat.data, etat.rules, machine, o, { categorie: code }); if (tag !== null && tag !== !!o.tag) engine.marquer(etat.data, etat.rules, o, tag); } marquer('data'); marquer('rules'); recategoriser(); await sauver(); };
   if ($('#bx-oui')) $('#bx-oui').onclick = () => classer(g.proposition);
-  if ($('#bx-autre')) $('#bx-autre').onclick = () => choisirCategorie(`${esc(g.nom)} — c'est quoi ?`, g.proposition, code => classer(code));
+  if ($('#bx-autre')) $('#bx-autre').onclick = () => { const tag = tagCoche(); choisirCategorie(`${esc(g.nom)} — c'est quoi ?`, g.proposition, code => classer(code), { tagInitial: tag }); };
   $('#bx-tard').onclick = () => { etat.plusTard.add(g.cle); rendreAccueil(); };
   const t = $('#bx-tuiles'); if (t) t.querySelectorAll('[data-code]').forEach(x => { x.onclick = () => classer(x.dataset.code); });
 }
@@ -1430,8 +1434,10 @@ function tuilesChoix(actuel, codes) { return (codes || catalogue.racines()).map(
 // feuille : choisir une catégorie (puis une sous-catégorie si la racine en a)
 function choisirCategorie(titre, actuel, cb, options) {
   const o = options || {};
-  const caseRegle = (o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : '') + (o.op && o.op.montant < 0 ? `<label class="ligne" style="margin-top:var(--e2)"><input type="checkbox" id="fx-tag" ${o.op.tag ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '');
-  const choisi = (code) => { const regle = o.caseRegle ? $('#fx-regle').checked : true; if (o.op && $('#fx-tag') && $('#fx-tag').checked !== !!o.op.tag) engine.marquer(etat.data, etat.rules, o.op, $('#fx-tag').checked); fermerFeuille(); cb(code, regle); };
+  const avecTag = (o.op && o.op.montant < 0) || o.tagInitial !== undefined && o.tagInitial !== null;
+  const tagInit = o.op ? !!o.op.tag : !!o.tagInitial;
+  const caseRegle = (o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : '') + (avecTag ? `<label class="ligne" style="margin-top:var(--e2)"><input type="checkbox" id="fx-tag" ${tagInit ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '');
+  const choisi = (code) => { const regle = o.caseRegle ? $('#fx-regle').checked : true; const ft = $('#fx-tag'); if (o.op && ft && ft.checked !== !!o.op.tag) engine.marquer(etat.data, etat.rules, o.op, ft.checked); if (!o.op && ft) { const bt = $('#bx-tag'); if (bt) bt.checked = ft.checked; } fermerFeuille(); cb(code, regle); };
   const niveau1 = () => {
     ouvrirFeuille(`<h3>${titre}</h3><div class="tuiles">${tuilesChoix(actuel)}</div>${caseRegle}`);
     $('#feuille').querySelectorAll('[data-code]').forEach(x => { x.onclick = () => { const code = x.dataset.code; const enfants = catalogue.enfants(code).filter(k => !CAT[k].masque); if (enfants.length && !o.sansSous) niveau2(code, enfants); else choisi(code); }; });
