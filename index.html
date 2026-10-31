@@ -259,7 +259,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.2.5';
+const APP_VERSION = '0.2.6';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -441,7 +441,7 @@ const COULEURS = ['#a21339', '#ef7cc4', '#500917', '#222b4b', '#2f7d4f', '#6c4fa
 const CATALOGUE = CATALOGUE_BASE.map(c => c.slice());
 const CAT = {};
 const catalogue = {
-  defaut() { return { ajouts: [], libelles: {}, emojis: {}, couleurs: {}, masques: [], fusions: [], ordre: [] }; },
+  defaut() { return { ajouts: [], libelles: {}, emojis: {}, couleurs: {}, masques: [], fusions: [], ordre: [], supprimees: [], suppressions: [] }; },
   conf(rules) { if (!rules.catalogue) rules.catalogue = catalogue.defaut(); const c = rules.catalogue; for (const [k, v] of Object.entries(catalogue.defaut())) if (c[k] === undefined) c[k] = v; return c; },
   codeValide(code) { return /^[A-Z][A-Z0-9-]*(\.[A-Z][A-Z0-9-]*)?$/.test(code); },
   // nom libre → code : accents retirés, majuscules, tirets ; unique. Le parent éventuel est un attribut (CAT[code].parent), pas le code.
@@ -462,8 +462,9 @@ const catalogue = {
   // recalcule CATALOGUE et CAT en place (les références restent valables)
   appliquer(rules) {
     const c = rules ? catalogue.conf(rules) : catalogue.defaut();
-    const liste = CATALOGUE_BASE.map(x => x.slice());
-    for (const a of c.ajouts) if (!liste.some(x => x[0] === a[0])) liste.push([a[0], a[1], a[2] || '🏷️', a[3] || COULEURS[liste.length % COULEURS.length], !!a[4], a[5] || null]);
+    const sup = new Set(c.supprimees || []);
+    const liste = CATALOGUE_BASE.map(x => x.slice()).filter(x => !sup.has(x[0]));
+    for (const a of c.ajouts) if (!sup.has(a[0]) && !liste.some(x => x[0] === a[0])) liste.push([a[0], a[1], a[2] || '🏷️', a[3] || COULEURS[liste.length % COULEURS.length], !!a[4], a[5] || null]);
     for (const x of liste) { if (x.length < 6) x.push(null); if (c.libelles[x[0]]) x[1] = c.libelles[x[0]]; if (c.emojis[x[0]]) x[2] = c.emojis[x[0]]; if (c.couleurs[x[0]]) x[3] = c.couleurs[x[0]]; }
     const codes = new Set(liste.map(x => x[0]));
     for (const x of liste) if (x[5] && !codes.has(x[5])) x[5] = null;
@@ -516,6 +517,27 @@ const catalogue = {
   deplacer(rules, code, delta) {
     const c = catalogue.conf(rules); const l = CATALOGUE.map(x => x[0]); const i = l.indexOf(code), j = i + delta; if (i < 0 || j < 0 || j >= l.length) return false;
     l.splice(i, 1); l.splice(j, 0, code); c.ordre = l; catalogue.appliquer(rules); return true;
+  },
+  // suppression (v0.2.6) : la catégorie et ses sous-catégories disparaissent ; leurs lignes reviennent « à classer » sans proposition ;
+  // les règles qui y menaient sont retirées (apprises → historique, livrées → désactivées) ; journal daté. La catégorie par défaut ne se supprime pas.
+  supprimer(rules, data, code) {
+    if (!CAT[code]) throw new Error('catégorie inconnue');
+    if (code === CAT_DEFAUT) throw new Error('la catégorie par défaut ne se supprime pas');
+    const c = catalogue.conf(rules); const codes = catalogue.descendants(code); let n = 0;
+    for (const o of data.operations) {
+      if (codes.includes(o.categorie)) { o.categorie = null; o.statut = 'a_valider'; o.regle_id = null; o.propositions = []; o.note = null; o.a_reclasser = true; o.modifie = util.nowIso(); n++; }
+      if (o.propositions && o.propositions.some(p => codes.includes(p))) o.propositions = o.propositions.filter(p => !codes.includes(p));
+    }
+    const d = util.nowIso().slice(0, 10);
+    rules.historique = rules.historique || [];
+    rules.rules = rules.rules.filter(r => { if (!codes.includes(r.categorie)) { if (r.options && r.options.propositions) r.options.propositions = r.options.propositions.filter(p => !codes.includes(p)); return true; } if (r.source === 'user') { rules.historique.push(Object.assign({}, r, { supprimee_le: d, motif: 'catégorie supprimée' })); return false; } r.actif = false; r.modifie = d; return true; });
+    for (const [t, v] of Object.entries(rules.tiers || {})) if (codes.includes(v.categorie)) delete rules.tiers[t];
+    c.supprimees = c.supprimees || []; c.suppressions = c.suppressions || [];
+    for (const k of codes) { if (!c.supprimees.includes(k)) c.supprimees.push(k); c.masques = c.masques.filter(x => x !== k); c.ordre = c.ordre.filter(x => x !== k); }
+    c.ajouts = c.ajouts.filter(a => !codes.includes(a[0]));
+    c.suppressions.push({ code, sous: codes.slice(1), date: d, lignes: n });
+    catalogue.appliquer(rules);
+    return n;
   },
   nbLignes(data, code, mois) { const codes = catalogue.descendants(code); return data.operations.filter(o => codes.includes(o.categorie) && (!mois || util.mois(o.date) === mois)).length; },
   // libellé complet : « Transport · Péage » pour une sous-catégorie
@@ -678,6 +700,10 @@ const modele = {
     for (const k of ['libelles', 'emojis', 'couleurs']) for (const [code, v] of Object.entries(ca[k] || {})) if (vide(ci[k][code])) ci[k][code] = v;
     for (const m of ca.masques) if (!ci.masques.includes(m)) ci.masques.push(m);
     for (const f of ca.fusions) if (!ci.fusions.some(x => x.de === f.de && x.vers === f.vers && x.date === f.date)) ci.fusions.push(cl(f));
+    ci.supprimees = ci.supprimees || []; ci.suppressions = ci.suppressions || [];
+    for (const k of ca.supprimees || []) if (!ci.supprimees.includes(k)) ci.supprimees.push(k);
+    for (const f of ca.suppressions || []) if (!ci.suppressions.some(x => x.code === f.code && x.date === f.date)) ci.suppressions.push(cl(f));
+    ci.ajouts = ci.ajouts.filter(a => !ci.supprimees.includes(a[0]));
     if (!ci.ordre.length && ca.ordre && ca.ordre.length) ci.ordre = cl(ca.ordre);
     catalogue.appliquer(res);
     const cc = res.config, ca2 = autre.config || {};
@@ -770,8 +796,14 @@ const engine = {
     const ctx = { rules, titulaire: rules.config.titulaire && norm.mots(rules.config.titulaire).length >= 2 ? rules.config.titulaire : null, confiance: engine.confiance(data) };
     for (const op of data.operations) {
       if (op.tag_src !== 'main') { op.tag = engine.tagAuto(op, rules); op.tag_src = op.tag ? 'auto' : null; }
+      if (op.statut === 'valide' && op.categorie && !CAT[op.categorie]) { op.statut = 'a_valider'; op.categorie = null; op.regle_id = null; op.propositions = []; }
       if (op.statut === 'valide') { if (op.regle_id && op.regle_id.startsWith('r-')) { const r = rules.rules.find(x => x.id === op.regle_id); if (r) r.hits++; } continue; }
-      if (!op.categorie || !CAT[op.categorie] || op.statut !== 'valide') engine.appliquer(op, engine.confirmer(op, engine.resoudre(op, ctx), ctx));
+      let res = engine.confirmer(op, engine.resoudre(op, ctx), ctx);
+      if (res.categorie && !CAT[res.categorie]) res = { categorie: null, statut: 'a_valider', propositions: [] };
+      if (res.propositions) res.propositions = res.propositions.filter(p => CAT[p]);
+      // ligne dont la catégorie a été supprimée : elle repasse toujours par la file, avec ce que le moteur suggère en proposition (jamais la catégorie par défaut)
+      if (op.a_reclasser) res = { categorie: null, statut: 'a_valider', regle_id: null, propositions: (res.categorie ? [res.categorie] : (res.propositions || [])).filter(p => p !== CAT_DEFAUT) };
+      engine.appliquer(op, res);
     }
     return data.operations.filter(o => o.statut === 'a_valider').length;
   },
@@ -795,7 +827,7 @@ const engine = {
   },
   // correction manuelle : la ligne est classée, et une règle est apprise (exacte sur le marchand, ou sur le nom du tiers pour un virement)
   corriger(data, rules, machine, op, choix) {
-    op.categorie = choix.categorie; op.statut = 'valide'; op.propositions = []; op.note = null; op.modifie = util.nowIso();
+    op.categorie = choix.categorie; op.statut = 'valide'; op.propositions = []; op.note = null; op.modifie = util.nowIso(); delete op.a_reclasser;
     if (choix.creerRegle === false) { op.regle_id = null; return null; }
     const regle = { id: modele.nouvelId(rules, machine), match: 'exact', pattern: op.cle, sens: engine.sens(op), categorie: choix.categorie, source: 'user', actif: true, hits: 0, cree: util.nowIso().slice(0, 10), modifie: util.nowIso().slice(0, 10) };
     if (op.tiers && /^virement_/.test(op.type)) { regle.match = 'tiers'; regle.pattern = op.tiers; regle.sens = 'any'; rules.tiers[op.tiers] = { categorie: choix.categorie }; }
@@ -1067,6 +1099,8 @@ const tests = {
       ['sous-catégories : masquer la racine masque les enfants ; réunir une racine déplace ses sous-catégories ; pas de réunion avec son propre enfant', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Péage', '🛣️', null, 'MOB'); catalogue.masquer(j.r, 'MOB', true); const ok1 = CAT[c].masque && !catalogue.visibles().includes(c); catalogue.masquer(j.r, 'MOB', false); let ok2 = false; try { catalogue.fusionner(j.r, j.d, 'MOB', c); } catch { ok2 = true; } catalogue.fusionner(j.r, j.d, 'MOB', 'LOIS.SHOPPING'); const ok3 = CAT[c].parent === 'LOIS.SHOPPING' && !CAT[c].masque; catalogue.appliquer(modele.rulesDefaut('T')); return ok1 && ok2 && ok3; }],
       ['migration : anciens ajouts à 5 champs et anciennes lignes sans marqueur complétés', () => { const r = modele.rulesDefaut('T'); r.catalogue.ajouts.push(['CHAT', 'Chat', '🐱', '#123456', false]); delete r.tagMarchands; delete r.config.tag; const d = modele.dataDefaut('T'); delete d.revues; d.operations.push(modele.op({ id: 'x', date: '2026-10-01', libelle: 'x', cle: 'X', type: 'carte', montant: -1 })); delete d.operations[0].tag; const m = modele.migrer(r, d); const ok = m && r.catalogue.ajouts[0].length === 6 && r.tagMarchands && r.config.tag.nom === 'Polie' && d.revues && d.operations[0].tag === false; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
       ['sous-catégorie de Revenus : comptée dans les revenus, pas dans les dépenses (bug v0.2.3)', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Salaire', '💼', null, 'REV'); const avant = stats.bilan(j.d, '2026-10'); engine.corriger(j.d, j.r, 'T', j.par('PAYE DU MOIS'), { categorie: c, creerRegle: false }); const b = stats.bilan(j.d, '2026-10'); const ok = b.revenus === avant.revenus && b.depenses === avant.depenses && !b.parCat.some(x => x.code === 'REV' || x.code === c); catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      ['suppression : lignes (classées comprises) de retour à classer sans proposition, règle apprise archivée, seed désactivée, sous-catégories emportées, journal ; la catégorie par défaut refuse', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Cantine', '🥪', null, 'ALIM.RESTO'); engine.corriger(j.d, j.r, 'T', j.par('BOUTIQUE INCONNUE'), { categorie: c }); const nResto = j.d.operations.filter(o => catalogue.descendants('ALIM.RESTO').includes(o.categorie)).length; const n = catalogue.supprimer(j.r, j.d, 'ALIM.RESTO'); engine.run(j.d, j.r); const b = j.par('BOUTIQUE INCONNUE'), t = j.par('TRAITEUR'); let refus = false; try { catalogue.supprimer(j.r, j.d, 'AUTRE'); } catch { refus = true; } const ok = n === nResto && n >= 2 && !CAT['ALIM.RESTO'] && !CAT[c] && b.statut === 'a_valider' && b.categorie === null && b.propositions.length === 0 && t.statut === 'a_valider' && t.categorie === null && j.r.historique.some(h => h.categorie === c && h.supprimee_le) && j.r.rules.filter(r => r.source === 'seed' && r.categorie === 'ALIM.RESTO').every(r => r.actif === false) && j.r.catalogue.suppressions[0].code === 'ALIM.RESTO' && j.r.catalogue.suppressions[0].sous[0] === c && refus; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      ['suppression : reprise par l\'autre appareil à la fusion (catégorie absente, lignes à reclasser)', () => { const a = tests.jeu(), b = tests.jeu(); catalogue.supprimer(a.r, a.d, 'ALIM.COURSES'); const f = coffre.fusionner({ rules: b.r, data: b.d }, { rules: a.r, data: a.d }); catalogue.appliquer(f.rules); engine.run(f.data, f.rules); const ok = !CAT['ALIM.COURSES'] && f.data.operations.filter(o => o.cle === 'INTERMARCHE').every(o => o.statut === 'a_valider' && o.categorie === null); catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
       // v0.2 — période annuelle
       ['analyse annuelle : bilan de l\'année = somme des mois, catégories regroupées, lignes de la période ; libellés', () => { const { d } = J(); const a = stats.bilanPeriode(d, '2026'), o = stats.bilan(d, '2026-10'), sep = stats.bilan(d, '2026-09'); return stats.annees(d).join() === '2026' && stats.moisDe(d, '2026').length === 2 && a.nbMois === 2 && a.depenses === util.r2(o.depenses + sep.depenses) && a.parCat.find(c => c.code === 'ALIM.COURSES').montant === util.r2(84.2 + 30) && stats.lignesPeriode(d, '2026', ['ALIM.COURSES']).length === 3 && stats.periodeLisible('2026') === 'Année 2026' && stats.periodeLisible('2026-10') === 'Octobre 2026' && JSON.stringify(stats.bilanPeriode(d, '2026-10')) === JSON.stringify(o); }]
     ];
@@ -1637,7 +1671,8 @@ $('#reg-prenom').onchange = async e => { etat.rules.config.titulaire = e.target.
 $('#reg-tag').onchange = async e => { etat.rules.config.tag = { nom: e.target.value.trim() || TAG_DEFAUT.nom, emoji: TAG().emoji }; marquer('rules'); await sauver(); };
 function actionsCategorie(code) {
   const c = CAT[code];
-  ouvrirFeuille(`<h3>${c.emoji} ${esc(catalogue.libelleComplet(code))}</h3><div class="liste-actions"><button id="ca-renommer">✏️ Renommer</button><button id="ca-style">🎨 Changer l'emoji ou la couleur</button>${c.parent ? '' : `<button id="ca-sous">➕ Ajouter une sous-catégorie</button>`}<button id="ca-fusion">🔀 Réunir avec une autre…</button><button id="ca-haut">⬆️ Monter</button><button id="ca-bas">⬇️ Descendre</button>${code === CAT_DEFAUT ? '' : `<button id="ca-masquer">🙈 Masquer${catalogue.enfants(code).length ? ' (avec ses sous-catégories)' : ''}</button>`}</div>`);
+  ouvrirFeuille(`<h3>${c.emoji} ${esc(catalogue.libelleComplet(code))}</h3><div class="liste-actions"><button id="ca-renommer">✏️ Renommer</button><button id="ca-style">🎨 Changer l'emoji ou la couleur</button>${c.parent ? '' : `<button id="ca-sous">➕ Ajouter une sous-catégorie</button>`}<button id="ca-fusion">🔀 Réunir avec une autre…</button><button id="ca-haut">⬆️ Monter</button><button id="ca-bas">⬇️ Descendre</button>${code === CAT_DEFAUT ? '' : `<button id="ca-masquer">🙈 Masquer${catalogue.enfants(code).length ? ' (avec ses sous-catégories)' : ''}</button><button id="ca-supprimer" style="color:var(--accent)">🗑️ Supprimer</button>`}</div>`);
+  const sup = $('#ca-supprimer'); if (sup) sup.onclick = () => confirmerSuppression(code);
   const sousBtn = $('#ca-sous'); if (sousBtn) sousBtn.onclick = () => ajouterCategorie(code);
   $('#ca-renommer').onclick = async () => { const n = prompt('Nouveau nom :', c.libelle); if (!n || !n.trim()) return; annulation.prendre('renommer'); catalogue.renommer(etat.rules, code, n); marquer('rules'); fermerFeuille(); await sauver(); };
   $('#ca-style').onclick = () => stylerCategorie(code);
@@ -1664,6 +1699,13 @@ function stylerCategorie(code, pourAjout) {
   brancher();
 }
 function ajouterCategorie(parent) { fermerFeuille(); stylerCategorie(null, { libelle: '', emoji: '🏷️', couleur: parent ? CAT[parent].couleur : COULEURS[CATALOGUE.length % COULEURS.length], parent: parent || null }); }
+function confirmerSuppression(code) {
+  const c = CAT[code]; if (!c) return;
+  const n = catalogue.nbLignes(etat.data, code); const enf = catalogue.enfants(code).length;
+  ouvrirFeuille(`<h3>Supprimer ${c.emoji} ${esc(catalogue.libelleComplet(code))} ?</h3><p>${n ? `Ses ${n} ligne${n > 1 ? 's' : ''} reviendr${n > 1 ? 'ont' : 'a'} à classer sur l'Accueil, pour que tu leur choisisses une autre catégorie. ` : 'Aucune ligne dedans pour l\'instant. '}${enf ? `Ses ${enf} sous-catégorie${enf > 1 ? 's' : ''} disparaîtr${enf > 1 ? 'ont' : 'a'} aussi. ` : ''}Ce que l'app avait appris pour cette catégorie est oublié.</p><p class="mention">Si tu veux juste la cacher sans rien perdre, choisis plutôt « Masquer ».</p><div class="boutons" style="margin-top:var(--e4)"><button class="primaire" id="su-oui">Oui, supprimer</button><button id="su-non">Non</button></div>`);
+  $('#su-non').onclick = fermerFeuille;
+  $('#su-oui').onclick = async () => { annulation.prendre('supprimer'); let k; try { k = catalogue.supprimer(etat.rules, etat.data, code); } catch (e) { toast(e.message, 'bad'); return; } marquer('rules'); marquer('data'); fermerFeuille(); etat.plusTard = new Set(); recategoriser(); await sauver(); toast(k ? `Supprimée. ${k} ligne${k > 1 ? 's' : ''} à reclasser sur l'Accueil.` : 'Supprimée.', 'ok'); };
+}
 function confirmerFusion(de, vers) {
   const a = CAT[de], b = CAT[vers]; if (!a || !b) return;
   const n = catalogue.nbLignes(etat.data, de);
