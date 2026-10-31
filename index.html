@@ -39,6 +39,18 @@ header.haut{display:flex;align-items:baseline;justify-content:space-between;gap:
 .badge.ok{background:#e4f3ea;color:var(--positif)}.badge.warn{background:#fff1d6;color:#8a5a00}.badge.bad{background:#fde3e1;color:#9c2a24}
 .carte{background:var(--fond-carte);border-radius:var(--rayon-carte);padding:var(--e4);margin:var(--e3) 0;box-shadow:0 1px 0 rgba(80,9,23,.06)}
 .carte.tendre{background:var(--fond-bloc)}
+.puces{display:flex;gap:var(--e2);flex-wrap:wrap;margin:var(--e2) 0}
+.puces button{min-height:36px;border-radius:999px;padding:4px var(--e3);font-size:var(--t-mention)}
+.puces button.on{background:var(--texte-principal);color:var(--blanc);border-color:var(--texte-principal)}
+.tag{display:inline-block;font-size:12px;border-radius:999px;padding:0 8px;background:var(--fond-bloc);color:var(--texte-secondaire);margin-left:4px}
+.revue-ligne{display:flex;align-items:center;gap:var(--e3);background:var(--fond-carte);border-radius:var(--rayon);padding:var(--e2) var(--e3);margin:var(--e1) 0;cursor:pointer}
+.revue-ligne input{width:24px;height:24px;flex:none;accent-color:var(--accent)}
+.revue-ligne.on{background:var(--fond-bloc)}
+.tuile.sous{min-height:64px;background:var(--fond-page);border:1px dashed var(--trait)}
+.tuile.sous .emo{width:28px;height:28px;font-size:15px}
+.tuile .parent{font-size:11px;color:var(--texte-secondaire)}
+.sous-liste{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e2) 0 0}
+.sous-liste button{min-height:36px;border-radius:999px;font-size:var(--t-mention);padding:4px var(--e3)}
 .ligne{display:flex;align-items:center;gap:var(--e3)}
 .ligne .pousse{flex:1;min-width:0}
 .pastille{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none;background:var(--fond-bloc)}
@@ -153,16 +165,27 @@ section.screen{display:none}section.screen.on{display:block}
     <button class="douce" id="btn-choisir" style="margin-top:var(--e2)">Choisir le fichier</button>
     <p class="mention" id="import-msg" style="margin-top:var(--e2)"></p>
   </div>
+  <div id="tag-carte"></div>
   <div id="boite"></div>
+</div></section>
+
+<section class="screen hidden" id="screen-revue"><div class="page">
+  <div class="mois-nav"><button id="rv-prec" aria-label="Mois précédent">‹</button><h2 id="rv-titre"></h2><button id="rv-suiv" aria-label="Mois suivant">›</button></div>
+  <p class="mention" id="rv-intro"></p>
+  <div id="rv-liste"></div>
+  <div class="boutons" style="margin-top:var(--e4)"><button class="primaire" id="rv-fini">✅ C'est tout bon</button><button id="rv-retour">Retour</button></div>
 </div></section>
 
 <section class="screen hidden" id="screen-ops"><div class="page">
   <div class="mois-nav"><button id="mois-prec" aria-label="Mois précédent">‹</button><h2 id="mois-titre"></h2><button id="mois-suiv" aria-label="Mois suivant">›</button></div>
+  <div class="puces" id="ops-filtre"></div>
   <div id="ops-liste"></div>
 </div></section>
 
 <section class="screen hidden" id="screen-analyse"><div class="page">
-  <div class="mois-nav"><button id="an-prec" aria-label="Mois précédent">‹</button><h2 id="an-titre"></h2><button id="an-suiv" aria-label="Mois suivant">›</button></div>
+  <div class="mois-nav"><button id="an-prec" aria-label="Période précédente">‹</button><h2 id="an-titre"></h2><button id="an-suiv" aria-label="Période suivante">›</button></div>
+  <div class="puces" id="an-periodes"></div>
+  <div class="puces" id="an-filtre"></div>
   <div class="carte"><div class="camembert"><canvas id="camembert" width="300" height="300"></canvas></div><div id="an-chiffres" class="gros-chiffres"></div></div>
   <div class="carte legende" id="an-legende"></div>
   <div id="an-detail"></div>
@@ -179,6 +202,11 @@ section.screen{display:none}section.screen.on{display:block}
     <input id="reg-prenom" type="text" autocomplete="off" placeholder="Comme sur tes virements">
     <p class="mention">Les virements que tu te fais à toi-même (livret, autre banque) passeront en épargne, pas en revenus.</p>
     <div id="reg-prenom-devine" class="mention"></div>
+  </div>
+  <div class="carte">
+    <label for="reg-tag">Le nom de ton activité</label>
+    <input id="reg-tag" type="text" autocomplete="off" placeholder="Polie">
+    <p class="mention">Les dépenses que tu lui rattaches restent dans ton budget, mais tu peux les voir à part.</p>
   </div>
   <div class="carte">
     <p id="reg-sync" class="mention"></p>
@@ -208,7 +236,7 @@ section.screen{display:none}section.screen.on{display:block}
 // Mon budget — version simplifiée du dashboard budget-dash (un compte, une banque, treize catégories).
 // Ce bloc ne touche pas au DOM : il est extrait et testé en Node (tests/run-node.js). Aucun montant ni libellé réel ici.
 'use strict';
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 const SCHEMA = 1;
 
 // ---------------------------------------------------------- util
@@ -393,26 +421,38 @@ const catalogue = {
   defaut() { return { ajouts: [], libelles: {}, emojis: {}, couleurs: {}, masques: [], fusions: [], ordre: [] }; },
   conf(rules) { if (!rules.catalogue) rules.catalogue = catalogue.defaut(); const c = rules.catalogue; for (const [k, v] of Object.entries(catalogue.defaut())) if (c[k] === undefined) c[k] = v; return c; },
   codeValide(code) { return /^[A-Z][A-Z0-9-]*(\.[A-Z][A-Z0-9-]*)?$/.test(code); },
-  // nom libre → code : accents retirés, majuscules, tirets ; unique
-  codeDepuisNom(nom, parent) {
+  // nom libre → code : accents retirés, majuscules, tirets ; unique. Le parent éventuel est un attribut (CAT[code].parent), pas le code.
+  codeDepuisNom(nom) {
     let base = norm.stripAccents(nom).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'CAT';
     if (/^\d/.test(base)) base = 'C' + base;
-    let code = parent ? parent.split('.')[0] + '.' + base : base; let n = 2;
+    let code = base; let n = 2;
     const pris = new Set(CATALOGUE.map(x => x[0]));
-    while (pris.has(code)) code = (parent ? parent.split('.')[0] + '.' + base : base) + '-' + (n++);
+    while (pris.has(code)) code = base + '-' + (n++);
     return code;
   },
+  // sous-catégories (v0.2) : une catégorie ajoutée peut avoir un parent parmi les catégories de base ou ajoutées sans parent (un seul niveau)
+  parent(code) { return CAT[code] && CAT[code].parent || null; },
+  racine(code) { return catalogue.parent(code) || code; },
+  enfants(code) { return CATALOGUE.map(x => x[0]).filter(k => CAT[k].parent === code); },
+  descendants(code) { return [code, ...catalogue.enfants(code)]; },
+  racines() { return catalogue.visibles().filter(k => !CAT[k].parent); },
   // recalcule CATALOGUE et CAT en place (les références restent valables)
   appliquer(rules) {
     const c = rules ? catalogue.conf(rules) : catalogue.defaut();
     const liste = CATALOGUE_BASE.map(x => x.slice());
-    for (const a of c.ajouts) if (!liste.some(x => x[0] === a[0])) liste.push([a[0], a[1], a[2] || '🏷️', a[3] || COULEURS[liste.length % COULEURS.length], !!a[4]]);
-    for (const x of liste) { if (c.libelles[x[0]]) x[1] = c.libelles[x[0]]; if (c.emojis[x[0]]) x[2] = c.emojis[x[0]]; if (c.couleurs[x[0]]) x[3] = c.couleurs[x[0]]; }
+    for (const a of c.ajouts) if (!liste.some(x => x[0] === a[0])) liste.push([a[0], a[1], a[2] || '🏷️', a[3] || COULEURS[liste.length % COULEURS.length], !!a[4], a[5] || null]);
+    for (const x of liste) { if (x.length < 6) x.push(null); if (c.libelles[x[0]]) x[1] = c.libelles[x[0]]; if (c.emojis[x[0]]) x[2] = c.emojis[x[0]]; if (c.couleurs[x[0]]) x[3] = c.couleurs[x[0]]; }
+    const codes = new Set(liste.map(x => x[0]));
+    for (const x of liste) if (x[5] && !codes.has(x[5])) x[5] = null;
+    // ordre : racines selon l'ordre personnalisé puis l'ordre livré ; chaque enfant juste après sa racine
     const rang = (k) => { const i = c.ordre.indexOf(k); return i >= 0 ? i : 1000 + liste.findIndex(x => x[0] === k); };
-    liste.sort((a, b) => rang(a[0]) - rang(b[0]));
-    CATALOGUE.length = 0; CATALOGUE.push(...liste);
+    const racines = liste.filter(x => !x[5]).sort((a, b) => rang(a[0]) - rang(b[0]));
+    const triee = [];
+    for (const r of racines) { triee.push(r); for (const e of liste.filter(x => x[5] === r[0]).sort((a, b) => rang(a[0]) - rang(b[0]))) triee.push(e); }
+    CATALOGUE.length = 0; CATALOGUE.push(...triee);
     for (const k of Object.keys(CAT)) delete CAT[k];
-    for (const [code, libelle, emoji, couleur, interne] of liste) CAT[code] = { code, libelle, emoji, couleur, interne, masque: c.masques.includes(code), livre: CATALOGUE_BASE.some(x => x[0] === code) };
+    for (const [code, libelle, emoji, couleur, interne, parent] of triee) CAT[code] = { code, libelle, emoji, couleur, interne, parent: parent || null, masque: c.masques.includes(code) || (parent ? c.masques.includes(parent) : false), livre: CATALOGUE_BASE.some(x => x[0] === code) };
+    for (const k of Object.keys(CAT)) if (CAT[k].parent) CAT[k].interne = CAT[CAT[k].parent].interne;
     return CATALOGUE;
   },
   visibles() { return CATALOGUE.filter(x => !CAT[x[0]].masque).map(x => x[0]); },
@@ -420,8 +460,10 @@ const catalogue = {
   ajouter(rules, nom, emoji, couleur, parent, interne) {
     const l = String(nom || '').trim(); if (!l) throw new Error('Il faut un nom');
     const c = catalogue.conf(rules);
-    const code = catalogue.codeDepuisNom(l, parent && CAT[parent] ? parent : null);
-    c.ajouts.push([code, l, String(emoji || '🏷️').trim() || '🏷️', couleur || COULEURS[CATALOGUE.length % COULEURS.length], !!interne]);
+    if (parent && !CAT[parent]) throw new Error('catégorie parente inconnue');
+    if (parent && CAT[parent].parent) throw new Error('une sous-catégorie ne peut pas avoir de sous-catégorie');
+    const code = catalogue.codeDepuisNom(l);
+    c.ajouts.push([code, l, String(emoji || '🏷️').trim() || '🏷️', couleur || (parent ? CAT[parent].couleur : COULEURS[CATALOGUE.length % COULEURS.length]), parent ? CAT[parent].interne : !!interne, parent || null]);
     c.masques = c.masques.filter(x => x !== code);
     catalogue.appliquer(rules);
     return code;
@@ -452,13 +494,19 @@ const catalogue = {
     const c = catalogue.conf(rules); const l = CATALOGUE.map(x => x[0]); const i = l.indexOf(code), j = i + delta; if (i < 0 || j < 0 || j >= l.length) return false;
     l.splice(i, 1); l.splice(j, 0, code); c.ordre = l; catalogue.appliquer(rules); return true;
   },
-  nbLignes(data, code, mois) { return data.operations.filter(o => o.categorie === code && (!mois || util.mois(o.date) === mois)).length; },
+  nbLignes(data, code, mois) { const codes = catalogue.descendants(code); return data.operations.filter(o => codes.includes(o.categorie) && (!mois || util.mois(o.date) === mois)).length; },
+  // libellé complet : « Transport · Péage » pour une sous-catégorie
+  libelleComplet(code) { const c = CAT[code]; if (!c) return ''; return c.parent && CAT[c.parent] ? CAT[c.parent].libelle + ' · ' + c.libelle : c.libelle; },
   // fusion : toutes les lignes (classées à la main comprises), règles, tiers et propositions passent de `de` à `vers` ; `de` est masqué ; journal daté
   fusionner(rules, data, de, vers) {
     if (!CAT[de] || !CAT[vers]) throw new Error('catégorie inconnue');
     if (de === vers) throw new Error('même catégorie');
     if (de === CAT_DEFAUT) throw new Error('la catégorie par défaut ne se fusionne pas');
+    if (CAT[vers].parent === de) throw new Error('une catégorie ne se réunit pas avec sa propre sous-catégorie');
     const c = catalogue.conf(rules); let n = 0;
+    // les sous-catégories de `de` passent sous `vers` (ou sous la racine de `vers` si `vers` est elle-même une sous-catégorie)
+    const nouveauParent = CAT[vers].parent || vers;
+    for (const a of c.ajouts) if (a[5] === de) a[5] = nouveauParent === a[0] ? null : nouveauParent;
     for (const o of data.operations) {
       if (o.categorie === de) { o.categorie = vers; n++; }
       if (o.propositions && o.propositions.includes(de)) o.propositions = [...new Set(o.propositions.map(p => p === de ? vers : p))];
@@ -475,6 +523,9 @@ const catalogue = {
 
 // ---------------------------------------------------------- règles d'amorçage (regex sur la clé marchand, en préfixe : la banque tronque les noms)
 // [pattern, sens, catégorie, options]. Aucun marchand propre à une personne ici.
+// marchands de tissus et mercerie : catégorie Shopping + marqueur d'activité (v0.2). GMT Mnnn = Mondial Tissus (groupe + numéro de magasin)
+const TAG_SEEDS_RX = /^(GMT M\d+|MONDIAL TISSU|TISSUS DES URSU|LES TISSUS DES|SELF TISSUS|TOTO\b|RASCOL|MERCERIE|BUTINETTE|LA DROGUERIE|COUPONS DE S|STRAGIER|MA PETITE MERCERIE|TISSUS?\b|FIL 2000|BOUILLON)/;
+const TAG_DEFAUT = { nom: 'Polie', emoji: '🧵' };
 const SEEDS = [
   ['^(INTERMARCHE|CARREFOUR|MONOP|LECLERC|AUCHAN|LIDL|CASINO|PICARD|GRAND FRAIS|FRANPRIX|BIOCOOP|NATURALIA|SUPER U|HYPER U)', 'debit', 'ALIM.COURSES'],
   ['^(IVS|SELECTA|TRAITEUR|BOULANG|UBER ?\\*? ?EATS|DELIVEROO|MCDO|MC DONALD|BURGER|KFC|STARBUCKS|COLUMBUS)|TRAITEUR|RESTAU|PIZZ|SUSHI', 'debit', 'ALIM.RESTO'],
@@ -484,7 +535,8 @@ const SEEDS = [
   ['^(SPOTIFY|NETFLIX|APPLE\\.COM|APPLE COM|DISNEY|CANAL|PAYPAL|DEEZER|PRIME VIDEO|AMAZON PRIME|GOOGLE|ICLOUD|YOUTUBE|DROPBOX)', 'debit', 'ABO', { a_valider: true }],
   ['^(PHARMA|DOCTEUR|DR |DENTISTE|OPTIC|COIFF|SEPHORA|NOCIBE|MARIONNAUD|YVES ROCHER|LABORATOIRE|CLINIQUE|KINE|OSTEO)', 'debit', 'SANTE'],
   ['^(PATHE|UGC|CINEMA|CGR|HOTEL|AIRBNB|BOOKING|HOSTEL|TICKETMASTER|FNAC SPECT|WEEZEVENT)', 'debit', 'LOIS.SORTIES'],
-  ['^(COTISATION|FRAIS|COMMISSION)$', 'debit', 'FIX']
+  ['^(COTISATION|FRAIS|COMMISSION)$', 'debit', 'FIX'],
+  [TAG_SEEDS_RX.source, 'debit', 'LOIS.SHOPPING']
 ];
 const PAYE_RX = /PAYE DU MOIS|SALAIRE|\bPAIE\b/i;
 const RESTO_MOTIF_RX = /\b(resto|restau|bar|resta|brunch|pizza|apero|apéro|diner|dîner|dej|déj)\b/i;
@@ -492,15 +544,15 @@ const RESTO_MOTIF_RX = /\b(resto|restau|bar|resta|brunch|pizza|apero|apéro|dine
 // ---------------------------------------------------------- modèle : rules / data, migration, dédoublonnage, fusion entre appareils
 const modele = {
   meta(machine) { return { ecrit_le: util.nowIso(), machine: machine || null, app: APP_VERSION }; },
-  op(base) { return Object.assign({ categorie: null, statut: 'a_valider', regle_id: null, propositions: [], note: null, banque: 'lbp' }, base); },
+  op(base) { return Object.assign({ categorie: null, statut: 'a_valider', regle_id: null, propositions: [], note: null, banque: 'lbp', tag: false, tag_src: null }, base); },
   seedRules() {
     return SEEDS.map(([pattern, sens, categorie, opt], i) => ({
       id: 's-' + String(i + 1).padStart(4, '0'), seed_key: pattern, match: 'regex', pattern, sens, categorie,
       source: 'seed', actif: true, hits: 0, options: opt || null, cree: '2026-10-30', modifie: '2026-10-30'
     }));
   },
-  rulesDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), config: { titulaire: null, compteurs: {} }, rules: modele.seedRules(), historique: [], tiers: {}, catalogue: catalogue.defaut() }; },
-  dataDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), operations: [], imports: [], solde: null }; },
+  rulesDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), config: { titulaire: null, compteurs: {}, tag: Object.assign({}, TAG_DEFAUT) }, rules: modele.seedRules(), historique: [], tiers: {}, tagMarchands: {}, catalogue: catalogue.defaut() }; },
+  dataDefaut(machine) { return { schema: SCHEMA, meta: modele.meta(machine), operations: [], imports: [], solde: null, revues: {} }; },
   // seeds manquantes ajoutées (jamais modifiées), champs absents complétés
   migrer(rules, data) {
     let modif = false;
@@ -512,11 +564,15 @@ const modele = {
     if (!rules.config) { rules.config = {}; modif = true; }
     if (!rules.config.compteurs) { rules.config.compteurs = {}; modif = true; }
     if (rules.config.titulaire === undefined) { rules.config.titulaire = null; modif = true; }
+    if (!rules.config.tag) { rules.config.tag = Object.assign({}, TAG_DEFAUT); modif = true; }
+    if (!rules.tagMarchands) { rules.tagMarchands = {}; modif = true; }
+    if (rules.catalogue && rules.catalogue.ajouts) for (const a of rules.catalogue.ajouts) if (a.length < 6) { a.push(null); modif = true; }
     if (!rules.catalogue) { rules.catalogue = catalogue.defaut(); modif = true; }
     catalogue.appliquer(rules);
     if (!data.imports) { data.imports = []; modif = true; }
     if (data.solde === undefined) { data.solde = null; modif = true; }
-    for (const o of data.operations) { if (!o.propositions) { o.propositions = []; modif = true; } if (o.note === undefined) { o.note = null; modif = true; } if (!o.banque) { o.banque = 'lbp'; modif = true; } }
+    if (!data.revues) { data.revues = {}; modif = true; }
+    for (const o of data.operations) { if (!o.propositions) { o.propositions = []; modif = true; } if (o.note === undefined) { o.note = null; modif = true; } if (!o.banque) { o.banque = 'lbp'; modif = true; } if (o.tag === undefined) { o.tag = false; o.tag_src = null; modif = true; } }
     return modif;
   },
   pourEcriture(nom, obj) {
@@ -551,15 +607,19 @@ const modele = {
   fusionner(ici, autre) {
     const rang = (o) => o.statut === 'valide' ? 2 : o.statut === 'auto' ? 1 : 0;
     const bilan = { communes: 0, ici_seul: 0, autre_seul: 0, prises_autre: 0 };
-    const res = { schema: SCHEMA, meta: ici.meta, operations: [], imports: [], solde: null };
+    const res = { schema: SCHEMA, meta: ici.meta, operations: [], imports: [], solde: null, revues: {} };
     const parId = new Map(ici.operations.map(o => [o.id, o])); const vus = new Set();
     for (const a of autre.operations) {
       const i = parId.get(a.id);
       if (!i) { res.operations.push(JSON.parse(JSON.stringify(a))); bilan.autre_seul++; continue; }
       vus.add(a.id); bilan.communes++;
       const g = rang(a) > rang(i) ? a : i; if (g === a) bilan.prises_autre++;
-      res.operations.push(JSON.parse(JSON.stringify(g)));
+      const o = JSON.parse(JSON.stringify(g));
+      // marqueur posé à la main d'un côté seulement : il est repris
+      const p = g === a ? i : a; if (o.tag_src !== 'main' && p.tag_src === 'main') { o.tag = p.tag; o.tag_src = 'main'; }
+      res.operations.push(o);
     }
+    for (const [m, v] of Object.entries(Object.assign({}, autre.revues || {}, ici.revues || {}))) res.revues[m] = v;
     for (const i of ici.operations) if (!vus.has(i.id)) { res.operations.push(JSON.parse(JSON.stringify(i))); bilan.ici_seul++; }
     const cle = (x) => x.date + '|' + x.lues + '|' + x.nouvelles; const vusI = new Set();
     for (const x of [...(ici.imports || []), ...(autre.imports || [])]) if (!vusI.has(cle(x))) { vusI.add(cle(x)); res.imports.push(JSON.parse(JSON.stringify(x))); }
@@ -587,6 +647,8 @@ const modele = {
     const cleH = (h) => JSON.stringify(serial.sortDeep(h)); const hist = new Set(res.historique.map(cleH));
     for (const h of autre.historique || []) if (!hist.has(cleH(h))) { res.historique.push(cl(h)); hist.add(cleH(h)); }
     for (const [n, t] of Object.entries(autre.tiers || {})) if (!res.tiers[n]) { res.tiers[n] = cl(t); bilan.tiers_autre++; }
+    res.tagMarchands = res.tagMarchands || {};
+    for (const [k, v] of Object.entries(autre.tagMarchands || {})) { const m = res.tagMarchands[k]; if (!m) res.tagMarchands[k] = cl(v); else { m.oui = Math.max(m.oui || 0, v.oui || 0); m.non = Math.max(m.non || 0, v.non || 0); } }
     const ci = catalogue.conf(res), ca = Object.assign(catalogue.defaut(), autre.catalogue || {});
     for (const a of ca.ajouts) if (!ci.ajouts.some(x => x[0] === a[0])) { ci.ajouts.push(cl(a)); bilan.catalogue_autre++; }
     for (const k of ['libelles', 'emojis', 'couleurs']) for (const [code, v] of Object.entries(ca[k] || {})) if (vide(ci[k][code])) ci[k][code] = v;
@@ -596,6 +658,7 @@ const modele = {
     catalogue.appliquer(res);
     const cc = res.config, ca2 = autre.config || {};
     if (vide(cc.titulaire) && !vide(ca2.titulaire)) { cc.titulaire = ca2.titulaire; bilan.config_autre++; }
+    if (!cc.tag && ca2.tag) { cc.tag = cl(ca2.tag); bilan.config_autre++; }
     cc.compteurs = cc.compteurs || {};
     for (const [k, v] of Object.entries(ca2.compteurs || {})) cc.compteurs[k] = Math.max(cc.compteurs[k] || 0, v);
     return { rules: res, bilan };
@@ -663,10 +726,26 @@ const engine = {
     if ((ctx.confiance[op.cle + '|' + cat] || 0) < engine.SEUIL_CONFIANCE) return res;
     return { categorie: cat, statut: 'auto', regle_id: 'confiance' };
   },
+  // marqueur d'activité (v0.2) : posé d'office sur les marchands de tissus (seed) et sur un marchand coché 3 fois sans jamais être décoché ; un choix à la main prime toujours
+  tagAuto(op, rules) {
+    if (op.montant >= 0 && op.type !== 'avoir') return false;
+    if (TAG_SEEDS_RX.test(op.cle)) return true;
+    const m = (rules.tagMarchands || {})[op.cle];
+    return !!(m && (m.oui || 0) >= engine.SEUIL_CONFIANCE && !(m.non || 0));
+  },
+  // cocher / décocher une ligne dans la revue : la ligne est fixée à la main, le marchand apprend
+  marquer(data, rules, op, valeur) {
+    const v = !!valeur; if (op.tag === v && op.tag_src === 'main') return;
+    op.tag = v; op.tag_src = 'main';
+    rules.tagMarchands = rules.tagMarchands || {};
+    const m = rules.tagMarchands[op.cle] || (rules.tagMarchands[op.cle] = { oui: 0, non: 0 });
+    if (v) m.oui++; else m.non++;
+  },
   run(data, rules) {
     for (const r of rules.rules) r.hits = 0;
     const ctx = { rules, titulaire: rules.config.titulaire && norm.mots(rules.config.titulaire).length >= 2 ? rules.config.titulaire : null, confiance: engine.confiance(data) };
     for (const op of data.operations) {
+      if (op.tag_src !== 'main') { op.tag = engine.tagAuto(op, rules); op.tag_src = op.tag ? 'auto' : null; }
       if (op.statut === 'valide') { if (op.regle_id && op.regle_id.startsWith('r-')) { const r = rules.rules.find(x => x.id === op.regle_id); if (r) r.hits++; } continue; }
       if (!op.categorie || !CAT[op.categorie] || op.statut !== 'valide') engine.appliquer(op, engine.confirmer(op, engine.resoudre(op, ctx), ctx));
     }
@@ -716,34 +795,63 @@ const stats = {
   mois(data) { return [...new Set(data.operations.map(o => util.mois(o.date)))].sort(); },
   dernierMois(data) { const m = stats.mois(data); return m.length ? m[m.length - 1] : util.nowIso().slice(0, 7); },
   estDepense(o) { return o.montant < 0 && !catalogue.interne(o.categorie) && (o.statut !== 'a_valider' || true); },
-  // revenus = crédits non internes ; dépenses = débits non internes (les avoirs réduisent la dépense) ; reste = revenus − dépenses
-  bilan(data, mois) {
-    const ops = data.operations.filter(o => util.mois(o.date) === mois);
+  // filtre d'activité : 'tout' (défaut), 'sans' (hors lignes marquées), 'tag' (lignes marquées seulement)
+  filtrer(ops, filtre) { return filtre === 'sans' ? ops.filter(o => !o.tag) : filtre === 'tag' ? ops.filter(o => o.tag) : ops; },
+  // revenus = crédits non internes ; dépenses = débits non internes (les avoirs réduisent la dépense) ; reste = revenus − dépenses.
+  // parCat est regroupé par catégorie racine, avec le détail des sous-catégories dans `sous`.
+  bilan(data, mois, filtre) {
+    const tous = data.operations.filter(o => util.mois(o.date) === mois);
+    const ops = stats.filtrer(tous, filtre);
     let revenus = 0, depenses = 0; const parCat = {};
     for (const o of ops) {
       const code = o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT;
       if (catalogue.interne(code)) continue;
       if (code === 'REV' || (o.montant > 0 && o.type !== 'avoir' && code === CAT_DEFAUT && o.statut === 'a_valider')) { if (o.montant > 0) revenus += o.montant; else depenses += -o.montant; continue; }
       depenses += -o.montant;
-      parCat[code] = parCat[code] || { code, montant: 0, n: 0 };
-      parCat[code].montant += -o.montant; parCat[code].n++;
+      const racine = catalogue.racine(code);
+      const r = parCat[racine] || (parCat[racine] = { code: racine, montant: 0, n: 0, sous: {} });
+      r.montant += -o.montant; r.n++;
+      const sc = r.sous[code] || (r.sous[code] = { code, montant: 0, n: 0 }); sc.montant += -o.montant; sc.n++;
     }
-    const cats = Object.values(parCat).map(c => ({ code: c.code, montant: util.r2(c.montant), n: c.n })).filter(c => c.montant > 0).sort((a, b) => b.montant - a.montant);
+    const cats = Object.values(parCat).map(c => ({ code: c.code, montant: util.r2(c.montant), n: c.n, sous: Object.values(c.sous).map(x => ({ code: x.code, montant: util.r2(x.montant), n: x.n })).sort((a, b) => b.montant - a.montant) })).filter(c => c.montant > 0).sort((a, b) => b.montant - a.montant);
     revenus = util.r2(revenus); depenses = util.r2(depenses);
-    return { mois, revenus, depenses, reste: util.r2(revenus - depenses), epargne: util.r2(ops.filter(o => o.categorie === 'EPG' && o.montant < 0).reduce((s, o) => s - o.montant, 0)), parCat: cats, aClasser: ops.filter(o => o.statut === 'a_valider').length };
+    const tag = util.r2(tous.filter(o => o.tag && o.montant < 0 && !catalogue.interne(o.categorie)).reduce((s, o) => s - o.montant, 0));
+    const tagEntrees = util.r2(tous.filter(o => o.tag && o.montant > 0 && !catalogue.interne(o.categorie)).reduce((s, o) => s + o.montant, 0));
+    return { mois, revenus, depenses, reste: util.r2(revenus - depenses), epargne: util.r2(ops.filter(o => o.categorie === 'EPG' && o.montant < 0).reduce((s, o) => s - o.montant, 0)), parCat: cats, aClasser: tous.filter(o => o.statut === 'a_valider').length, tag, tagEntrees, tagN: tous.filter(o => o.tag).length, revue: !!(data.revues && data.revues[mois]) };
   },
+  // période d'analyse (v0.2) : un mois ('2026-10') ou une année ('2026') → même bilan, sommé sur les mois concernés
+  moisDe(data, periode) { return /^\d{4}$/.test(periode) ? stats.mois(data).filter(m => m.startsWith(periode)) : [periode]; },
+  annees(data) { return [...new Set(stats.mois(data).map(m => m.slice(0, 4)))].sort(); },
+  periodeLisible(periode) { return /^\d{4}$/.test(periode) ? 'Année ' + periode : util.moisLisible(periode); },
+  bilanPeriode(data, periode, filtre) {
+    const mois = stats.moisDe(data, periode);
+    if (mois.length === 1 && mois[0] === periode) return stats.bilan(data, periode, filtre);
+    const b = mois.map(m => stats.bilan(data, m, filtre));
+    const somme = (k) => util.r2(b.reduce((s, x) => s + x[k], 0));
+    const parCat = {};
+    for (const x of b) for (const c of x.parCat) { const r = parCat[c.code] || (parCat[c.code] = { code: c.code, montant: 0, n: 0, sous: {} }); r.montant += c.montant; r.n += c.n; for (const sc of c.sous) { const y = r.sous[sc.code] || (r.sous[sc.code] = { code: sc.code, montant: 0, n: 0 }); y.montant += sc.montant; y.n += sc.n; } }
+    const cats = Object.values(parCat).map(c => ({ code: c.code, montant: util.r2(c.montant), n: c.n, sous: Object.values(c.sous).map(x => ({ code: x.code, montant: util.r2(x.montant), n: x.n })).sort((a, b) => b.montant - a.montant) })).sort((a, b) => b.montant - a.montant);
+    return { mois: periode, periode, nbMois: mois.length, revenus: somme('revenus'), depenses: somme('depenses'), reste: somme('reste'), epargne: somme('epargne'), parCat: cats, aClasser: b.reduce((s, x) => s + x.aClasser, 0), tag: somme('tag'), tagEntrees: somme('tagEntrees'), tagN: b.reduce((s, x) => s + x.tagN, 0), revue: b.every(x => x.revue) };
+  },
+  lignesPeriode(data, periode, codes, filtre) { return stats.moisDe(data, periode).flatMap(m => stats.lignes(data, m, codes, filtre)).sort((a, b) => b.date.localeCompare(a.date)); },
   // camembert : au plus `max` parts, le reste regroupé dans « Autres »
   camembert(bilan, max) {
     const n = max || 8; const l = bilan.parCat;
-    if (l.length <= n) return l.map(c => ({ code: c.code, montant: c.montant, codes: [c.code] }));
-    const tete = l.slice(0, n - 1).map(c => ({ code: c.code, montant: c.montant, codes: [c.code] }));
+    if (l.length <= n) return l.map(c => ({ code: c.code, montant: c.montant, codes: [c.code], sous: c.sous || [] }));
+    const tete = l.slice(0, n - 1).map(c => ({ code: c.code, montant: c.montant, codes: [c.code], sous: c.sous || [] }));
     const reste = l.slice(n - 1);
     tete.push({ code: 'AUTRES', montant: util.r2(reste.reduce((s, c) => s + c.montant, 0)), codes: reste.map(c => c.code) });
     return tete;
   },
-  lignes(data, mois, codes) { return data.operations.filter(o => util.mois(o.date) === mois && codes.includes(o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT) && o.montant < 0).sort((a, b) => b.date.localeCompare(a.date)); },
-  parJour(data, mois) {
-    const ops = data.operations.filter(o => util.mois(o.date) === mois).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  lignes(data, mois, codes, filtre) { const tousCodes = codes.flatMap(c => catalogue.descendants(c)); return stats.filtrer(data.operations.filter(o => util.mois(o.date) === mois && tousCodes.includes(o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT) && o.montant < 0), filtre).sort((a, b) => b.date.localeCompare(a.date)); },
+  // revue d'activité (variante B) : toutes les lignes du mois hors internes, dépenses d'abord puis entrées, les marquées en tête de chaque groupe
+  revue(data, mois) {
+    const ops = data.operations.filter(o => util.mois(o.date) === mois && !catalogue.interne(o.categorie));
+    const tri = (a, b) => (b.tag - a.tag) || b.date.localeCompare(a.date) || a.id.localeCompare(b.id);
+    return { depenses: ops.filter(o => o.montant < 0).sort(tri), entrees: ops.filter(o => o.montant >= 0).sort(tri) };
+  },
+  parJour(data, mois, filtre) {
+    const ops = stats.filtrer(data.operations.filter(o => util.mois(o.date) === mois), filtre).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
     const jours = []; let cur = null;
     for (const o of ops) { if (!cur || cur.date !== o.date) { cur = { date: o.date, ops: [] }; jours.push(cur); } cur.ops.push(o); }
     return jours;
@@ -918,7 +1026,20 @@ const tests = {
       ['fusion de deux appareils : union des opérations, une ligne classée l\'emporte, règles réunies sans collision, solde le plus récent', () => { const a = tests.jeu(), b = tests.jeu(); const oa = a.par('BOUTIQUE INCONNUE'); engine.corriger(a.d, a.r, 'PC', oa, { categorie: 'LOIS.SHOPPING' }); engine.corriger(b.d, b.r, 'TEL', b.par('SPOTIFY'), { categorie: 'ABO' }); b.d.solde = { date: '2026-11-02', montant: 1 }; const t = tests.csvFictif() + '10/10/2026;"ACHAT CB NOUVEAU MARCHAND 09.10.26 CARTE NUMERO 123";-3,00\r\n'; modele.importer(b.d, banques.lire(tests.octets1252(t), 'x.csv')); const f = coffre.fusionner({ rules: a.r, data: a.d }, { rules: b.r, data: b.d }); return f.data.operations.length === 16 && f.data.operations.find(o => o.id === oa.id).statut === 'valide' && f.rules.rules.filter(r => r.source === 'user').length === 2 && f.data.solde.montant === 1 && f.bilan.autre_seul === 1 && f.bilan.regles_autre === 1; }],
       ['écriture déterministe : même contenu → même texte ; opérations triées par date', () => { const { d, r } = J(); const a = coffre.emballer(r, d), b = coffre.emballer(JSON.parse(JSON.stringify(r)), JSON.parse(JSON.stringify(d))); const ops = JSON.parse(a).data.operations; return a === b && ops[0].date <= ops[ops.length - 1].date; }],
       ['nom lisible : capitales initiales, tiers pour un virement', () => { const { par } = J(); return norm.nomLisible(par('UNIQLO EUROPE L 26')) === 'Uniqlo Europe L' && norm.nomLisible({ cle: 'NP TRAITEUR BA' }) === 'Np Traiteur Ba'; }],
-      ['rien de réel : le CSV de test ne contient ni numéro de compte conservé, ni prénom dans le code', () => { const { d } = J(); const js = JSON.stringify(d); return !js.includes('0000000000') && !js.includes('Numéro'); }]
+      ['rien de réel : le CSV de test ne contient ni numéro de compte conservé, ni prénom dans le code', () => { const { d } = J(); const js = JSON.stringify(d); return !js.includes('0000000000') && !js.includes('Numéro'); }],
+      // v0.2 — marqueur d'activité
+      ['marqueur : « ACHAT CB GMT M260 NICE  06.08.26 CARTE NUMERO   437 » → clé GMT M260 NICE, Shopping, marqué d\'office', () => { const t = tests.csvFictif() + '06/08/2026;"ACHAT CB GMT M260 NICE  06.08.26 CARTE NUMERO                437";-30,00\r\n'; const { par } = J(t); const o = par('GMT M260'); return o.cle === 'GMT M260 NICE' && o.categorie === 'LOIS.SHOPPING' && o.tag === true && o.tag_src === 'auto' && !par('INTERMARCHE 27').tag; }],
+      ['marqueur : cocher à la main fixe la ligne ; décocher une ligne d\'office aussi ; le réimport ne change rien', () => { const t = tests.csvFictif() + '06/08/2026;"ACHAT CB GMT M260 NICE 06.08.26 CARTE NUMERO 437";-30,00\r\n'; const j = J(t); const g = j.par('GMT M260'), i = j.par('INTERMARCHE 27'); engine.marquer(j.d, j.r, i, true); engine.marquer(j.d, j.r, g, false); engine.run(j.d, j.r); return i.tag === true && i.tag_src === 'main' && g.tag === false && g.tag_src === 'main' && j.r.tagMarchands['INTERMARCHE'].oui === 1 && j.r.tagMarchands['GMT M260 NICE'].non === 1; }],
+      ['marqueur : un marchand coché 3 fois sans jamais être décoché → marqué d\'office ensuite, pas avant', () => { const L = (d) => `${d};"ACHAT CB BOUTIQUE INCONNUE 01.10.26 CARTE NUMERO 123";-9,00`; const t = tests.csvFictif().split('\r\n').slice(0, 7).concat([L('01/07/2026'), L('01/08/2026'), L('01/09/2026'), L('01/10/2026')]).join('\r\n'); const j = J(t); const ops = j.d.operations.slice().sort((a, b) => a.date.localeCompare(b.date)); engine.marquer(j.d, j.r, ops[0], true); engine.marquer(j.d, j.r, ops[1], true); engine.run(j.d, j.r); const ok1 = !ops[3].tag; engine.marquer(j.d, j.r, ops[2], true); engine.run(j.d, j.r); return ok1 && ops[3].tag && ops[3].tag_src === 'auto'; }],
+      ['bilan filtré : tout / sans / marqué ; total marqué du mois ; revue du mois', () => { const t = tests.csvFictif() + '06/10/2026;"ACHAT CB GMT M260 NICE 06.10.26 CARTE NUMERO 437";-30,00\r\n'; const j = J(t); const b = stats.bilan(j.d, '2026-10'), bs = stats.bilan(j.d, '2026-10', 'sans'), bt = stats.bilan(j.d, '2026-10', 'tag'); j.d.revues['2026-10'] = '2026-10-31'; return b.tag === 30 && b.tagN === 1 && util.r2(b.depenses - bs.depenses) === 30 && bt.depenses === 30 && bt.parCat.length === 1 && bt.parCat[0].code === 'LOIS.SHOPPING' && stats.revue(j.d, '2026-10').depenses[0].cle === 'GMT M260 NICE' && stats.revue(j.d, '2026-10').entrees.length === 3 && stats.bilan(j.d, '2026-10').revue; }],
+      ['fusion entre appareils : un marqueur posé à la main sur un seul appareil est repris ; compteurs marchands réunis', () => { const a = tests.jeu(), b = tests.jeu(); engine.marquer(b.d, b.r, b.par('BOUTIQUE INCONNUE'), true); const f = coffre.fusionner({ rules: a.r, data: a.d }, { rules: b.r, data: b.d }); return f.data.operations.find(o => o.cle === 'BOUTIQUE INCONNUE').tag === true && f.rules.tagMarchands['BOUTIQUE INCONNUE'].oui === 1; }],
+      // v0.2 — sous-catégories
+      ['sous-catégories : ajout sous Transport (couleur héritée), libellé complet, un seul niveau, racines', () => { const r = modele.rulesDefaut('T'); const c = catalogue.ajouter(r, 'Péage', '🛣️', null, 'MOB'); const c2 = catalogue.ajouter(r, 'Parking', '🅿️', null, 'MOB'); let ok3 = false; try { catalogue.ajouter(r, 'Trop profond', '❌', null, c); } catch { ok3 = true; } const ok = CAT[c].parent === 'MOB' && CAT[c].couleur === CAT.MOB.couleur && catalogue.libelleComplet(c) === 'Transport · Péage' && catalogue.enfants('MOB').join() === [c, c2].join() && !catalogue.racines().includes(c) && catalogue.racines().includes('MOB') && CATALOGUE.map(x => x[0]).indexOf(c) === CATALOGUE.map(x => x[0]).indexOf('MOB') + 1; catalogue.appliquer(modele.rulesDefaut('T')); return ok && ok3; }],
+      ['sous-catégories : le bilan regroupe par racine avec le détail ; les lignes d\'une racine incluent ses sous-catégories ; nb de lignes', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Péage', '🛣️', null, 'MOB'); engine.corriger(j.d, j.r, 'T', j.par('RETRAIT'), { categorie: c, creerRegle: false }); engine.corriger(j.d, j.r, 'T', j.par('BOUTIQUE INCONNUE'), { categorie: 'MOB', creerRegle: false }); const b = stats.bilan(j.d, '2026-10'); const mob = b.parCat.find(x => x.code === 'MOB'); const ok = mob.montant === 49 && mob.sous.length === 2 && mob.sous.find(x => x.code === c).montant === 40 && !b.parCat.some(x => x.code === c) && stats.lignes(j.d, '2026-10', ['MOB']).length === 2 && catalogue.nbLignes(j.d, 'MOB', '2026-10') === 2 && catalogue.nbLignes(j.d, c, '2026-10') === 1; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      ['sous-catégories : masquer la racine masque les enfants ; réunir une racine déplace ses sous-catégories ; pas de réunion avec son propre enfant', () => { const j = J(); const c = catalogue.ajouter(j.r, 'Péage', '🛣️', null, 'MOB'); catalogue.masquer(j.r, 'MOB', true); const ok1 = CAT[c].masque && !catalogue.visibles().includes(c); catalogue.masquer(j.r, 'MOB', false); let ok2 = false; try { catalogue.fusionner(j.r, j.d, 'MOB', c); } catch { ok2 = true; } catalogue.fusionner(j.r, j.d, 'MOB', 'LOIS.SHOPPING'); const ok3 = CAT[c].parent === 'LOIS.SHOPPING' && !CAT[c].masque; catalogue.appliquer(modele.rulesDefaut('T')); return ok1 && ok2 && ok3; }],
+      ['migration : anciens ajouts à 5 champs et anciennes lignes sans marqueur complétés', () => { const r = modele.rulesDefaut('T'); r.catalogue.ajouts.push(['CHAT', 'Chat', '🐱', '#123456', false]); delete r.tagMarchands; delete r.config.tag; const d = modele.dataDefaut('T'); delete d.revues; d.operations.push(modele.op({ id: 'x', date: '2026-10-01', libelle: 'x', cle: 'X', type: 'carte', montant: -1 })); delete d.operations[0].tag; const m = modele.migrer(r, d); const ok = m && r.catalogue.ajouts[0].length === 6 && r.tagMarchands && r.config.tag.nom === 'Polie' && d.revues && d.operations[0].tag === false; catalogue.appliquer(modele.rulesDefaut('T')); return ok; }],
+      // v0.2 — période annuelle
+      ['analyse annuelle : bilan de l\'année = somme des mois, catégories regroupées, lignes de la période ; libellés', () => { const { d } = J(); const a = stats.bilanPeriode(d, '2026'), o = stats.bilan(d, '2026-10'), sep = stats.bilan(d, '2026-09'); return stats.annees(d).join() === '2026' && stats.moisDe(d, '2026').length === 2 && a.nbMois === 2 && a.depenses === util.r2(o.depenses + sep.depenses) && a.parCat.find(c => c.code === 'ALIM.COURSES').montant === util.r2(84.2 + 30) && stats.lignesPeriode(d, '2026', ['ALIM.COURSES']).length === 3 && stats.periodeLisible('2026') === 'Année 2026' && stats.periodeLisible('2026-10') === 'Octobre 2026' && JSON.stringify(stats.bilanPeriode(d, '2026-10')) === JSON.stringify(o); }]
     ];
   },
   casGithub() {
@@ -976,7 +1097,7 @@ const tests = {
 };
 catalogue.appliquer(null);
 
-if (typeof module !== 'undefined') module.exports = { util, norm, lbp, banques, serial, modele, engine, stats, catalogue, chiffre, coffre, github, tests, CATALOGUE, CAT, CATALOGUE_BASE, SEEDS, COULEURS, CAT_DEFAUT };
+if (typeof module !== 'undefined') module.exports = { util, norm, lbp, banques, serial, modele, engine, stats, catalogue, chiffre, coffre, github, tests, CATALOGUE, CAT, CATALOGUE_BASE, SEEDS, COULEURS, CAT_DEFAUT, TAG_SEEDS_RX, TAG_DEFAUT };
 // ============================================================ UI (DOM)
 if (typeof document !== 'undefined') (function () {
 const $ = s => document.querySelector(s);
@@ -992,9 +1113,12 @@ const idb = {
 };
 const UA = navigator.userAgent || '';
 let machine = localStorage.getItem('budget.machine') || (/iPhone|iPad/.test(UA) ? 'IPHONE' : /Android/.test(UA) ? 'ANDROID' : /Macintosh/.test(UA) ? 'MAC' : 'PC');
-const etat = { rules: null, data: null, charge: { rules: null, data: null }, dirty: { rules: false, data: false }, mois: null, moisAnalyse: null, detailCodes: null, ecran: 'accueil', plusTard: new Set() };
+const etat = { rules: null, data: null, charge: { rules: null, data: null }, dirty: { rules: false, data: false }, mois: null, moisAnalyse: null, moisRevue: null, periodeAnalyse: 'mois', filtreOps: 'tout', filtreAnalyse: 'tout', detailCodes: null, ecran: 'accueil', plusTard: new Set() };
 function marquer(nom) { etat.dirty[nom] = true; }
-function toutRendre() { if (!etat.data) return; rendreAccueil(); rendreOps(); rendreAnalyse(); rendrePlus(); rendreSync(); }
+function toutRendre() { if (!etat.data) return; rendreAccueil(); rendreOps(); rendreAnalyse(); rendrePlus(); rendreRevue(); rendreSync(); }
+const NAV_PARENT = { revue: 'accueil' };
+function TAG() { return (etat.rules && etat.rules.config.tag) || TAG_DEFAUT; }
+function tagEtiquette() { const t = TAG(); return `${t.emoji} ${esc(t.nom)}`; }
 
 // ---------- stockage GitHub chiffré (repris de budget-dash) : envoi 3 s après la dernière modification, hors ligne, fusion en conflit
 const SYNC_DELAI = 3000, SYNC_RETENTATIVE = 30000;
@@ -1124,7 +1248,7 @@ const annulation = { pile: [], MAX: 20,
 $('#btn-annuler').onclick = () => annulation.annuler();
 
 // ---------- navigation
-function montrerEcran(nom) { etat.ecran = nom; document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x.dataset.screen === nom)); document.querySelectorAll('section.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + nom)); fermerFeuille(); try { window.scrollTo(0, 0); } catch { } toutRendre(); }
+function montrerEcran(nom) { etat.ecran = nom; const nav = NAV_PARENT[nom] || nom; document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x.dataset.screen === nav)); document.querySelectorAll('section.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + nom)); fermerFeuille(); try { window.scrollTo(0, 0); } catch { } toutRendre(); }
 document.querySelectorAll('#nav button').forEach(b => { b.onclick = () => montrerEcran(b.dataset.screen); });
 function montrerApp(connecte) { $('#ecran-connexion').classList.toggle('hidden', connecte); $('#entete').classList.toggle('hidden', !connecte); $('#nav').classList.toggle('hidden', !connecte); document.querySelectorAll('section.screen').forEach(s => { s.classList.toggle('hidden', !connecte); if (!connecte) s.classList.remove('on'); }); if (connecte && !document.querySelector('section.screen.on')) montrerEcran('accueil'); }
 
@@ -1262,8 +1386,8 @@ const PHRASES = { REV: 'un revenu', FIX: 'une facture ou le loyer', ABO: 'un abo
 function phraseCat(code) { return PHRASES[code] || `« ${CAT[code] ? CAT[code].libelle : code} »`; }
 function cat(code) { return CAT[code] || CAT[CAT_DEFAUT]; }
 function pastille(code, taille) { const c = cat(code); return `<span class="pastille" style="background:${c.couleur}22;${taille ? `width:${taille}px;height:${taille}px;` : ''}">${c.emoji}</span>`; }
-function chiffresMois(mois) {
-  const b = stats.bilan(etat.data, mois);
+function chiffresMois(mois, filtre) {
+  const b = stats.bilanPeriode(etat.data, mois, filtre);
   return `<div class="gros-chiffres"><div><div class="val">${eur(b.revenus)}</div><div class="lab">Revenus</div></div><div><div class="val">${eur(b.depenses)}</div><div class="lab">Dépenses</div></div><div><div class="val" style="color:${b.reste < 0 ? 'var(--accent)' : 'var(--positif)'}">${eur(b.reste)}</div><div class="lab">Reste</div></div></div>`;
 }
 function rendreAccueil() {
@@ -1272,6 +1396,7 @@ function rendreAccueil() {
   const total = engine.aClasser(etat.data).length;
   $('#accueil-chiffres').innerHTML = etat.data.operations.length ? `<div class="carte"><p class="mention" style="text-align:center">${util.moisLisible(mois)}</p>${chiffresMois(mois)}</div>` : '';
   document.querySelector('#nav button[data-screen=accueil]').innerHTML = `<span class="ico">🏠</span>Accueil${total ? '<span class="point"></span>' : ''}`;
+  rendreCarteTag(mois);
   const b = $('#boite');
   if (!etat.data.operations.length) { b.innerHTML = `<div class="carte tendre"><p>👋 Bienvenue ! Commence par importer ton fichier de la banque.</p></div>`; return; }
   if (!groupes.length) { b.innerHTML = `<div class="carte tendre" style="text-align:center"><p style="font-size:var(--t-sous-titre)">${total ? '😌 Le reste attendra la prochaine fois.' : '🎉 Tout est classé !'}</p>${total ? `<button class="lien" id="btn-reprendre">Reprendre ce que j'ai mis de côté</button>` : ''}</div>`; const r = $('#btn-reprendre'); if (r) r.onclick = () => { etat.plusTard = new Set(); rendreAccueil(); }; return; }
@@ -1293,45 +1418,86 @@ function rendreAccueil() {
   $('#bx-tard').onclick = () => { etat.plusTard.add(g.cle); rendreAccueil(); };
   const t = $('#bx-tuiles'); if (t) t.querySelectorAll('[data-code]').forEach(x => { x.onclick = () => classer(x.dataset.code); });
 }
-function tuilesChoix(actuel) { return catalogue.visibles().map(code => { const c = CAT[code]; return `<button class="tuile ${code === actuel ? 'on' : ''}" data-code="${code}"><span class="emo" style="background:${c.couleur}22">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span></button>`; }).join(''); }
-// feuille : choisir une catégorie
+function rendreCarteTag(mois) {
+  const el = $('#tag-carte'); if (!el) return;
+  if (!etat.data.operations.length) { el.innerHTML = ''; return; }
+  const b = stats.bilan(etat.data, mois); const t = TAG();
+  el.innerHTML = `<div class="carte"><div class="ligne"><span class="pastille">${t.emoji}</span><span class="pousse"><b>${esc(t.nom)}</b> · ${util.moisLisible(mois)}<br><span class="mention">${b.tagN ? `${b.tagN} ligne${b.tagN > 1 ? 's' : ''}, ${eur(b.tag)}` : 'Rien de marqué pour l\'instant'}${b.revue ? ' · mois passé en revue ✓' : ''}</span></span></span><button class="${b.revue ? '' : 'primaire'}" id="btn-revue">${b.revue ? 'Revoir' : 'Passer le mois en revue'}</button></div></div>`;
+  $('#btn-revue').onclick = () => { etat.moisRevue = mois; montrerEcran('revue'); };
+}
+// tuiles de choix : racines visibles ; une racine qui a des sous-catégories ouvre un second niveau
+function tuilesChoix(actuel, codes) { return (codes || catalogue.racines()).map(code => { const c = CAT[code]; const n = catalogue.enfants(code).filter(k => !CAT[k].masque).length; return `<button class="tuile ${code === actuel || (CAT[actuel] && CAT[actuel].parent === code) ? 'on' : ''}" data-code="${code}"><span class="emo" style="background:${c.couleur}22">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span>${n ? `<span class="n">${n} sous-cat. ›</span>` : ''}</button>`; }).join(''); }
+// feuille : choisir une catégorie (puis une sous-catégorie si la racine en a)
 function choisirCategorie(titre, actuel, cb, options) {
   const o = options || {};
-  ouvrirFeuille(`<h3>${titre}</h3><div class="tuiles">${tuilesChoix(actuel)}</div>${o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : ''}`);
-  $('#feuille').querySelectorAll('[data-code]').forEach(x => { x.onclick = () => { const regle = o.caseRegle ? $('#fx-regle').checked : true; fermerFeuille(); cb(x.dataset.code, regle); }; });
+  const caseRegle = (o.caseRegle ? `<label class="ligne" style="margin-top:var(--e4)"><input type="checkbox" id="fx-regle" checked> <span>Pour toutes les lignes « ${esc(o.nom)} »</span></label>` : '') + (o.op && o.op.montant < 0 ? `<label class="ligne" style="margin-top:var(--e2)"><input type="checkbox" id="fx-tag" ${o.op.tag ? 'checked' : ''}> <span>C'est pour ${tagEtiquette()}</span></label>` : '');
+  const choisi = (code) => { const regle = o.caseRegle ? $('#fx-regle').checked : true; if (o.op && $('#fx-tag') && $('#fx-tag').checked !== !!o.op.tag) engine.marquer(etat.data, etat.rules, o.op, $('#fx-tag').checked); fermerFeuille(); cb(code, regle); };
+  const niveau1 = () => {
+    ouvrirFeuille(`<h3>${titre}</h3><div class="tuiles">${tuilesChoix(actuel)}</div>${caseRegle}`);
+    $('#feuille').querySelectorAll('[data-code]').forEach(x => { x.onclick = () => { const code = x.dataset.code; const enfants = catalogue.enfants(code).filter(k => !CAT[k].masque); if (enfants.length && !o.sansSous) niveau2(code, enfants); else choisi(code); }; });
+  };
+  const niveau2 = (racine, enfants) => {
+    const r = CAT[racine];
+    ouvrirFeuille(`<h3>${r.emoji} ${esc(r.libelle)} — plus précisément ?</h3><div class="tuiles"><button class="tuile ${actuel === racine ? 'on' : ''}" data-code="${racine}"><span class="emo" style="background:${r.couleur}22">${r.emoji}</span><span class="nom">${esc(r.libelle)} tout court</span></button>${tuilesChoix(actuel, enfants)}</div>${caseRegle}<button class="lien" id="fx-retour" style="margin-top:var(--e3)">‹ Toutes les catégories</button>`);
+    $('#feuille').querySelectorAll('[data-code]').forEach(x => { x.onclick = () => choisi(x.dataset.code); });
+    $('#fx-retour').onclick = niveau1;
+  };
+  niveau1();
 }
+function puces(el, choix, actuel, cb) { el.innerHTML = choix.map(([k, l]) => `<button class="${k === actuel ? 'on' : ''}" data-k="${k}">${l}</button>`).join(''); el.querySelectorAll('button').forEach(b => { b.onclick = () => cb(b.dataset.k); }); }
+function filtresTag() { return [['tout', 'Tout'], ['sans', `Sans ${esc(TAG().nom)}`], ['tag', `${tagEtiquette()} seulement`]]; }
+
+// ---------- revue d'activité (variante B) : toutes les lignes du mois, une case par ligne
+function rendreRevue() {
+  if (!$('#rv-liste')) return;
+  const mois = etat.moisRevue || stats.dernierMois(etat.data); const t = TAG();
+  $('#rv-titre').textContent = `${t.emoji} ${util.moisLisible(mois)}`;
+  const r = stats.revue(etat.data, mois); const b = stats.bilan(etat.data, mois);
+  $('#rv-intro').textContent = `Coche ce qui est pour ${t.nom}. ${b.tagN ? `${b.tagN} ligne${b.tagN > 1 ? 's' : ''} cochée${b.tagN > 1 ? 's' : ''}, ${eur(b.tag)}${b.tagEntrees ? ` de dépenses et ${eur(b.tagEntrees)} d'entrées` : ''}.` : 'Rien de coché pour l\'instant.'}`;
+  const ligne = (o) => `<label class="revue-ligne ${o.tag ? 'on' : ''}"><input type="checkbox" data-id="${o.id}" ${o.tag ? 'checked' : ''}>${pastille(o.categorie)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}</span><span class="cat mention">${o.date.slice(8, 10)}/${o.date.slice(5, 7)} · ${esc(catalogue.libelleComplet(o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT))}${o.tag_src === 'auto' ? ' · d\'office' : ''}</span></span><span class="mt ${o.montant > 0 ? 'pos' : ''}">${eur(o.montant)}</span></label>`;
+  $('#rv-liste').innerHTML = (r.depenses.length ? `<div class="jour">Dépenses</div>${r.depenses.map(ligne).join('')}` : '<div class="carte tendre"><p>Aucune dépense ce mois-ci.</p></div>') + (r.entrees.length ? `<div class="jour">Entrées</div>${r.entrees.map(ligne).join('')}` : '');
+  $('#rv-liste').querySelectorAll('input[data-id]').forEach(x => { x.onchange = async () => { const o = etat.data.operations.find(y => y.id === x.dataset.id); if (!o) return; engine.marquer(etat.data, etat.rules, o, x.checked); marquer('data'); marquer('rules'); x.closest('.revue-ligne').classList.toggle('on', x.checked); await store.enregistrer(); rendreRevueEntete(mois); }; });
+}
+function rendreRevueEntete(mois) { const b = stats.bilan(etat.data, mois); const t = TAG(); $('#rv-intro').textContent = `Coche ce qui est pour ${t.nom}. ${b.tagN ? `${b.tagN} ligne${b.tagN > 1 ? 's' : ''} cochée${b.tagN > 1 ? 's' : ''}, ${eur(b.tag)}${b.tagEntrees ? ` de dépenses et ${eur(b.tagEntrees)} d'entrées` : ''}.` : 'Rien de coché pour l\'instant.'}`; }
+$('#rv-fini').onclick = async () => { const mois = etat.moisRevue || stats.dernierMois(etat.data); etat.data.revues[mois] = util.nowIso().slice(0, 10); marquer('data'); montrerEcran('accueil'); await sauver(); toast(`${util.moisLisible(mois)} passé en revue`, 'ok'); };
+$('#rv-retour').onclick = () => montrerEcran('accueil');
+$('#rv-prec').onclick = () => { etat.moisRevue = util.moisPrecedent(etat.moisRevue || stats.dernierMois(etat.data)); rendreRevue(); };
+$('#rv-suiv').onclick = () => { etat.moisRevue = util.moisSuivant(etat.moisRevue || stats.dernierMois(etat.data)); rendreRevue(); };
 
 // ---------- opérations
 function rendreOps() {
   const mois = etat.mois || stats.dernierMois(etat.data);
   $('#mois-titre').textContent = util.moisLisible(mois);
-  const jours = stats.parJour(etat.data, mois);
-  const b = stats.bilan(etat.data, mois);
-  let html = jours.length ? `<div class="carte">${chiffresMois(mois)}</div>` : `<div class="carte tendre"><p>Rien ce mois-ci.</p></div>`;
+  puces($('#ops-filtre'), filtresTag(), etat.filtreOps, k => { etat.filtreOps = k; rendreOps(); });
+  const jours = stats.parJour(etat.data, mois, etat.filtreOps);
+  let html = jours.length ? `<div class="carte">${chiffresMois(mois, etat.filtreOps)}</div>` : `<div class="carte tendre"><p>Rien ici ce mois-ci.</p></div>`;
   for (const j of jours) {
     html += `<div class="jour">${util.jourLisible(j.date)}</div>`;
-    for (const o of j.ops) { const c = cat(o.categorie); const aC = o.statut === 'a_valider'; html += `<button class="op ${aC ? 'aclasser' : ''}" data-id="${o.id}">${pastille(o.categorie)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}</span><span class="cat">${aC ? 'À classer' : esc(c.libelle)}${o.motif ? ' · ' + esc(o.motif) : ''}</span></span><span class="mt ${o.montant > 0 ? 'pos' : ''}">${eur(o.montant)}</span></button>`; }
+    for (const o of j.ops) html += ligneOp(o, true);
   }
   $('#ops-liste').innerHTML = html;
   $('#ops-liste').querySelectorAll('.op').forEach(x => { x.onclick = () => editerOp(x.dataset.id); });
-  void b;
 }
+function ligneOp(o, avecMotif) { const aC = o.statut === 'a_valider'; const code = o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT; return `<button class="op ${aC ? 'aclasser' : ''}" data-id="${o.id}">${pastille(code)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}${o.tag ? `<span class="tag">${TAG().emoji}</span>` : ''}</span><span class="cat">${aC ? 'À classer' : esc(catalogue.libelleComplet(code))}${avecMotif && o.motif ? ' · ' + esc(o.motif) : ''}</span></span><span class="mt ${o.montant > 0 ? 'pos' : ''}">${eur(o.montant)}</span></button>`; }
 function editerOp(id) {
   const o = etat.data.operations.find(x => x.id === id); if (!o) return;
   const nom = o.tiers ? norm.nomLisible({ cle: o.tiers }) : norm.nomLisible(o);
-  choisirCategorie(`${esc(nom)} · ${eur(o.montant)}`, o.categorie, async (code, regle) => { annulation.prendre('op'); engine.corriger(etat.data, etat.rules, machine, o, { categorie: code, creerRegle: regle }); marquer('data'); marquer('rules'); recategoriser(); await sauver(); toast(regle ? `C'est noté pour « ${nom} »` : 'C\'est noté', 'ok'); }, { caseRegle: true, nom });
+  choisirCategorie(`${esc(nom)} · ${eur(o.montant)}${o.tag ? ` <span class="tag">${tagEtiquette()}</span>` : ''}`, o.categorie, async (code, regle) => { annulation.prendre('op'); engine.corriger(etat.data, etat.rules, machine, o, { categorie: code, creerRegle: regle }); marquer('data'); marquer('rules'); recategoriser(); await sauver(); toast(regle ? `C'est noté pour « ${nom} »` : 'C\'est noté', 'ok'); }, { caseRegle: true, nom, op: o });
 }
 $('#mois-prec').onclick = () => { etat.mois = util.moisPrecedent(etat.mois || stats.dernierMois(etat.data)); rendreOps(); };
 $('#mois-suiv').onclick = () => { etat.mois = util.moisSuivant(etat.mois || stats.dernierMois(etat.data)); rendreOps(); };
 
 // ---------- analyse
 let graphique = null;
+function periodeAnalyse() { const m = etat.moisAnalyse || stats.dernierMois(etat.data); return etat.periodeAnalyse === 'annee' ? m.slice(0, 4) : m; }
 function rendreAnalyse() {
-  const mois = etat.moisAnalyse || stats.dernierMois(etat.data);
-  $('#an-titre').textContent = util.moisLisible(mois);
-  const b = stats.bilan(etat.data, mois);
+  const mois = periodeAnalyse();
+  $('#an-titre').textContent = stats.periodeLisible(mois);
+  puces($('#an-periodes'), [['mois', 'Par mois'], ['annee', 'Année ' + (etat.moisAnalyse || stats.dernierMois(etat.data)).slice(0, 4)]], etat.periodeAnalyse, k => { etat.periodeAnalyse = k; etat.detailCodes = null; rendreAnalyse(); });
+  puces($('#an-filtre'), filtresTag(), etat.filtreAnalyse, k => { etat.filtreAnalyse = k; etat.detailCodes = null; rendreAnalyse(); });
+  const b = stats.bilanPeriode(etat.data, mois, etat.filtreAnalyse);
   const parts = stats.camembert(b, 8);
-  $('#an-chiffres').innerHTML = chiffresMois(mois).replace(/^<div class="gros-chiffres">|<\/div>$/g, '');
+  $('#an-chiffres').innerHTML = chiffresMois(mois, etat.filtreAnalyse).replace(/^<div class="gros-chiffres">|<\/div>$/g, '') + (b.tag && etat.filtreAnalyse === 'tout' ? `<div style="grid-column:1/-1" class="mention">dont ${tagEtiquette()} : ${eur(b.tag)}${b.tagEntrees ? ` de dépenses, ${eur(b.tagEntrees)} d'entrées` : ''}</div>` : '') + (b.nbMois > 1 ? `<div style="grid-column:1/-1" class="mention">${b.nbMois} mois · ${eur(util.r2(b.depenses / b.nbMois))} de dépenses par mois en moyenne</div>` : '');
   const couleur = (p) => p.code === 'AUTRES' ? '#c9c3c7' : cat(p.code).couleur;
   const nom = (p) => p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle;
   const emoji = (p) => p.code === 'AUTRES' ? '➕' : cat(p.code).emoji;
@@ -1339,19 +1505,22 @@ function rendreAnalyse() {
     if (graphique) { graphique.destroy(); graphique = null; }
     if (parts.length) graphique = new Chart($('#camembert'), { type: 'doughnut', data: { labels: parts.map(nom), datasets: [{ data: parts.map(p => p.montant), backgroundColor: parts.map(couleur), borderColor: '#fff', borderWidth: 2 }] }, options: { cutout: '58%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${eur(c.parsed)}` } } }, onClick: (e, els) => { if (els.length) montrerDetail(mois, parts[els[0].index]); } } });
   }
-  $('#an-legende').innerHTML = parts.length ? parts.map((p, i) => `<button data-i="${i}"><span class="puce" style="background:${couleur(p)}"></span><span>${emoji(p)}</span><span class="pousse">${esc(nom(p))}</span><span class="mt">${eur(p.montant)}</span><span class="mention">${Math.round(100 * p.montant / Math.max(b.depenses, 0.01))} %</span></button>`).join('') : '<p class="mention">Pas de dépenses ce mois-ci.</p>';
+  $('#an-legende').innerHTML = parts.length ? parts.map((p, i) => `<button data-i="${i}"><span class="puce" style="background:${couleur(p)}"></span><span>${emoji(p)}</span><span class="pousse">${esc(nom(p))}</span><span class="mt">${eur(p.montant)}</span><span class="mention">${Math.round(100 * p.montant / Math.max(b.depenses, 0.01))} %</span></button>`).join('') : '<p class="mention">Pas de dépenses sur cette période.</p>';
   $('#an-legende').querySelectorAll('button').forEach(x => { x.onclick = () => montrerDetail(mois, parts[Number(x.dataset.i)]); });
   if (etat.detailCodes && etat.detailCodes.mois === mois) rendreDetail(mois, etat.detailCodes); else { etat.detailCodes = null; $('#an-detail').innerHTML = ''; }
 }
-function montrerDetail(mois, p) { etat.detailCodes = { mois, codes: p.codes, nom: p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle }; rendreDetail(mois, etat.detailCodes); const el = $('#an-detail'); if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function montrerDetail(mois, p) { etat.detailCodes = { mois, codes: p.codes, nom: p.code === 'AUTRES' ? 'Autres' : cat(p.code).libelle, sous: p.code === 'AUTRES' ? [] : (p.sous || []) }; rendreDetail(mois, etat.detailCodes); const el = $('#an-detail'); if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 function rendreDetail(mois, d) {
-  const lignes = stats.lignes(etat.data, mois, d.codes);
-  $('#an-detail').innerHTML = `<div class="carte"><div class="ligne"><h3 class="pousse">${esc(d.nom)}</h3><button class="lien" id="an-fermer">Fermer</button></div>${lignes.map(o => `<button class="op" data-id="${o.id}">${pastille(o.categorie)}<span class="pousse"><span class="tronque" style="display:block">${esc(norm.nomLisible(o))}</span><span class="cat">${o.date.slice(8, 10)}/${o.date.slice(5, 7)} · ${esc(cat(o.categorie).libelle)}</span></span><span class="mt">${eur(o.montant)}</span></button>`).join('') || '<p class="mention">Rien ici.</p>'}</div>`;
+  const lignes = stats.lignesPeriode(etat.data, mois, d.codes, etat.filtreAnalyse);
+  const sous = d.sous && d.sous.length > 1 ? `<div class="sous-liste">${d.sous.map(sc => `<button data-sc="${sc.code}" class="${d.codesActifs && d.codesActifs[0] === sc.code ? 'on' : ''}">${cat(sc.code).emoji} ${esc(sc.code === d.codes[0] ? cat(sc.code).libelle + ' tout court' : cat(sc.code).libelle)} · ${eur(sc.montant)}</button>`).join('')}</div>` : '';
+  const visibles = d.codesActifs ? lignes.filter(o => (o.categorie && CAT[o.categorie] ? o.categorie : CAT_DEFAUT) === d.codesActifs[0]) : lignes;
+  $('#an-detail').innerHTML = `<div class="carte"><div class="ligne"><h3 class="pousse">${esc(d.nom)}</h3><button class="lien" id="an-fermer">Fermer</button></div>${sous}${visibles.map(o => ligneOp(o, false).replace('class="op ', 'class="op ').replace(/<span class="cat">.*?<\/span>/, (m) => m.replace('<span class="cat">', `<span class="cat">${o.date.slice(8, 10)}/${o.date.slice(5, 7)} · `))).join('') || '<p class="mention">Rien ici.</p>'}</div>`;
   $('#an-fermer').onclick = () => { etat.detailCodes = null; $('#an-detail').innerHTML = ''; };
+  $('#an-detail').querySelectorAll('[data-sc]').forEach(x => { x.onclick = () => { d.codesActifs = d.codesActifs && d.codesActifs[0] === x.dataset.sc ? null : [x.dataset.sc]; rendreDetail(mois, d); }; });
   $('#an-detail').querySelectorAll('.op').forEach(x => { x.onclick = () => editerOp(x.dataset.id); });
 }
-$('#an-prec').onclick = () => { etat.moisAnalyse = util.moisPrecedent(etat.moisAnalyse || stats.dernierMois(etat.data)); etat.detailCodes = null; rendreAnalyse(); };
-$('#an-suiv').onclick = () => { etat.moisAnalyse = util.moisSuivant(etat.moisAnalyse || stats.dernierMois(etat.data)); etat.detailCodes = null; rendreAnalyse(); };
+$('#an-prec').onclick = () => { const m = etat.moisAnalyse || stats.dernierMois(etat.data); etat.moisAnalyse = etat.periodeAnalyse === 'annee' ? (Number(m.slice(0, 4)) - 1) + m.slice(4) : util.moisPrecedent(m); etat.detailCodes = null; rendreAnalyse(); };
+$('#an-suiv').onclick = () => { const m = etat.moisAnalyse || stats.dernierMois(etat.data); etat.moisAnalyse = etat.periodeAnalyse === 'annee' ? (Number(m.slice(0, 4)) + 1) + m.slice(4) : util.moisSuivant(m); etat.detailCodes = null; rendreAnalyse(); };
 window.addEventListener('load', () => { if (etat.data) rendreAnalyse(); });
 
 // ---------- plus : mes catégories + réglages
@@ -1359,7 +1528,7 @@ const EMOJIS = ['🏠', '💶', '📱', '🛒', '🍽️', '🚗', '🛍️', '�
 function rendrePlus() {
   const mois = stats.dernierMois(etat.data);
   const vis = catalogue.visibles(), masq = CATALOGUE.map(x => x[0]).filter(c => CAT[c].masque);
-  $('#tuiles').innerHTML = vis.map(code => { const c = CAT[code]; return `<div class="tuile" draggable="true" data-code="${code}" role="button" tabindex="0"><span class="emo" style="background:${c.couleur}33">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span><span class="n">${catalogue.nbLignes(etat.data, code, mois)} ce mois-ci</span></div>`; }).join('') + `<button class="tuile ajout" id="tuile-ajout"><span class="emo">➕</span><span class="nom">Ajouter</span></button>`;
+  $('#tuiles').innerHTML = vis.map(code => { const c = CAT[code]; return `<div class="tuile ${c.parent ? 'sous' : ''}" draggable="true" data-code="${code}" role="button" tabindex="0">${c.parent ? `<span class="parent">↳ ${esc(CAT[c.parent].libelle)}</span>` : ''}<span class="emo" style="background:${c.couleur}33">${c.emoji}</span><span class="nom">${esc(c.libelle)}</span><span class="n">${catalogue.nbLignes(etat.data, code, mois)} ce mois-ci</span></div>`; }).join('') + `<button class="tuile ajout" id="tuile-ajout"><span class="emo">➕</span><span class="nom">Ajouter</span></button>`;
   $('#tuiles-masquees').innerHTML = masq.length ? `<p class="mention" style="margin-top:var(--e4)">Masquées : ${masq.map(code => `<button class="lien" data-code="${code}">${CAT[code].emoji} ${esc(CAT[code].libelle)}</button>`).join(' ')}</p>` : '';
   $('#tuiles-masquees').querySelectorAll('button').forEach(x => { x.onclick = async () => { annulation.prendre('afficher'); catalogue.masquer(etat.rules, x.dataset.code, false); marquer('rules'); await sauver(); }; });
   $('#tuiles').querySelectorAll('.tuile[data-code]').forEach(t => {
@@ -1370,16 +1539,19 @@ function rendrePlus() {
     t.ondragleave = () => t.classList.remove('cible');
     t.ondrop = e => { e.preventDefault(); t.classList.remove('cible'); const de = e.dataTransfer.getData('text/plain'); if (de && de !== t.dataset.code) confirmerFusion(de, t.dataset.code); };
   });
-  $('#tuile-ajout').onclick = ajouterCategorie;
+  $('#tuile-ajout').onclick = () => ajouterCategorie(null);
+  $('#reg-tag').value = TAG().nom;
   $('#reg-prenom').value = etat.rules.config.titulaire || '';
   const dev = !etat.rules.config.titulaire && engine.devinerTitulaire(etat.data);
   $('#reg-prenom-devine').innerHTML = dev ? `C'est toi, « ${esc(norm.nomLisible({ cle: dev }))} » ? <button class="lien" id="reg-prenom-oui">Oui</button>` : '';
   const oui = $('#reg-prenom-oui'); if (oui) oui.onclick = async () => { etat.rules.config.titulaire = dev; marquer('rules'); recategoriser(); await sauver(); };
 }
 $('#reg-prenom').onchange = async e => { etat.rules.config.titulaire = e.target.value.trim() || null; marquer('rules'); recategoriser(); await sauver(); };
+$('#reg-tag').onchange = async e => { etat.rules.config.tag = { nom: e.target.value.trim() || TAG_DEFAUT.nom, emoji: TAG().emoji }; marquer('rules'); await sauver(); };
 function actionsCategorie(code) {
   const c = CAT[code];
-  ouvrirFeuille(`<h3>${c.emoji} ${esc(c.libelle)}</h3><div class="liste-actions"><button id="ca-renommer">✏️ Renommer</button><button id="ca-style">🎨 Changer l'emoji ou la couleur</button><button id="ca-fusion">🔀 Réunir avec une autre…</button><button id="ca-haut">⬆️ Monter</button><button id="ca-bas">⬇️ Descendre</button>${code === CAT_DEFAUT ? '' : `<button id="ca-masquer">🙈 Masquer</button>`}</div>`);
+  ouvrirFeuille(`<h3>${c.emoji} ${esc(catalogue.libelleComplet(code))}</h3><div class="liste-actions"><button id="ca-renommer">✏️ Renommer</button><button id="ca-style">🎨 Changer l'emoji ou la couleur</button>${c.parent ? '' : `<button id="ca-sous">➕ Ajouter une sous-catégorie</button>`}<button id="ca-fusion">🔀 Réunir avec une autre…</button><button id="ca-haut">⬆️ Monter</button><button id="ca-bas">⬇️ Descendre</button>${code === CAT_DEFAUT ? '' : `<button id="ca-masquer">🙈 Masquer${catalogue.enfants(code).length ? ' (avec ses sous-catégories)' : ''}</button>`}</div>`);
+  const sousBtn = $('#ca-sous'); if (sousBtn) sousBtn.onclick = () => ajouterCategorie(code);
   $('#ca-renommer').onclick = async () => { const n = prompt('Nouveau nom :', c.libelle); if (!n || !n.trim()) return; annulation.prendre('renommer'); catalogue.renommer(etat.rules, code, n); marquer('rules'); fermerFeuille(); await sauver(); };
   $('#ca-style').onclick = () => stylerCategorie(code);
   $('#ca-fusion').onclick = () => { fermerFeuille(); choisirCategorie(`Réunir « ${esc(c.libelle)} » avec…`, null, vers => { if (vers !== code) confirmerFusion(code, vers); }); };
@@ -1389,30 +1561,33 @@ function actionsCategorie(code) {
 }
 function stylerCategorie(code, pourAjout) {
   const c = pourAjout || CAT[code]; let emoji = c.emoji, couleur = c.couleur;
-  const rendu = () => `<h3>${pourAjout ? 'Nouvelle catégorie' : esc(c.libelle)}</h3>${pourAjout ? `<label for="st-nom">Nom</label><input id="st-nom" type="text" value="${esc(c.libelle)}">` : ''}<p class="mention">Emoji</p><div class="emojis">${EMOJIS.map(e => `<button data-e="${e}" class="${e === emoji ? 'on' : ''}">${e}</button>`).join('')}</div><p class="mention" style="margin-top:var(--e3)">Couleur</p><div class="pastilles-couleur">${COULEURS.map(k => `<button data-k="${k}" class="${k === couleur ? 'on' : ''}" style="background:${k}" aria-label="${k}"></button>`).join('')}</div><button class="primaire" id="st-ok" style="width:100%;margin-top:var(--e4)">C'est bon</button>`;
+  const parents = pourAjout ? catalogue.racines().filter(k => k !== CAT_DEFAUT) : [];
+  const rendu = () => `<h3>${pourAjout ? (pourAjout.parent ? `Nouvelle sous-catégorie de ${esc(CAT[pourAjout.parent].libelle)}` : 'Nouvelle catégorie') : esc(c.libelle)}</h3>${pourAjout ? `<label for="st-nom">Nom</label><input id="st-nom" type="text" value="${esc(c.libelle)}"><label for="st-parent">Dans</label><select id="st-parent" style="width:100%;min-height:var(--zone-tactile);border:1px solid var(--trait);border-radius:var(--rayon);padding:var(--e2) var(--e3);background:var(--fond-carte)"><option value="">— une catégorie à part —</option>${parents.map(k => `<option value="${k}" ${k === pourAjout.parent ? 'selected' : ''}>${CAT[k].emoji} ${esc(CAT[k].libelle)}</option>`).join('')}</select>` : ''}<p class="mention">Emoji</p><div class="emojis">${EMOJIS.map(e => `<button data-e="${e}" class="${e === emoji ? 'on' : ''}">${e}</button>`).join('')}</div><p class="mention" style="margin-top:var(--e3)">Couleur</p><div class="pastilles-couleur">${COULEURS.map(k => `<button data-k="${k}" class="${k === couleur ? 'on' : ''}" style="background:${k}" aria-label="${k}"></button>`).join('')}</div><button class="primaire" id="st-ok" style="width:100%;margin-top:var(--e4)">C'est bon</button>`;
   ouvrirFeuille(rendu());
   const brancher = () => {
     $('#feuille').querySelectorAll('[data-e]').forEach(b => { b.onclick = () => { emoji = b.dataset.e; $('#feuille').querySelectorAll('[data-e]').forEach(x => x.classList.toggle('on', x.dataset.e === emoji)); }; });
     $('#feuille').querySelectorAll('[data-k]').forEach(b => { b.onclick = () => { couleur = b.dataset.k; $('#feuille').querySelectorAll('[data-k]').forEach(x => x.classList.toggle('on', x.dataset.k === couleur)); }; });
     $('#st-ok').onclick = async () => {
       annulation.prendre('style');
-      if (pourAjout) { const nom = $('#st-nom').value.trim(); if (!nom) { toast('Il faut un nom', 'bad'); return; } try { catalogue.ajouter(etat.rules, nom, emoji, couleur, null, false); } catch (e) { toast(e.message, 'bad'); return; } }
+      if (pourAjout) { const nom = $('#st-nom').value.trim(); if (!nom) { toast('Il faut un nom', 'bad'); return; } try { catalogue.ajouter(etat.rules, nom, emoji, couleur, $('#st-parent').value || null, false); } catch (e) { toast(e.message, 'bad'); return; } }
       else catalogue.styler(etat.rules, code, emoji, couleur);
       marquer('rules'); fermerFeuille(); await sauver();
     };
   };
   brancher();
 }
-function ajouterCategorie() { stylerCategorie(null, { libelle: '', emoji: '🏷️', couleur: COULEURS[CATALOGUE.length % COULEURS.length] }); }
+function ajouterCategorie(parent) { fermerFeuille(); stylerCategorie(null, { libelle: '', emoji: '🏷️', couleur: parent ? CAT[parent].couleur : COULEURS[CATALOGUE.length % COULEURS.length], parent: parent || null }); }
 function confirmerFusion(de, vers) {
   const a = CAT[de], b = CAT[vers]; if (!a || !b) return;
   const n = catalogue.nbLignes(etat.data, de);
-  ouvrirFeuille(`<h3>Réunir ${a.emoji} ${esc(a.libelle)} dans ${b.emoji} ${esc(b.libelle)} ?</h3><p>${n ? `Les ${n} lignes « ${esc(a.libelle)} » passeront en « ${esc(b.libelle)} », ` : ''}et « ${esc(a.libelle)} » sera masquée.</p><div class="boutons" style="margin-top:var(--e4)"><button class="primaire" id="fu-oui">Oui, réunir</button><button id="fu-non">Non</button></div>`);
+  if (b.parent === de) { toast('Choisis plutôt une autre catégorie : celle-ci est déjà dedans.', 'bad'); return; }
+  const enf = catalogue.enfants(de).length;
+  ouvrirFeuille(`<h3>Réunir ${a.emoji} ${esc(a.libelle)} dans ${b.emoji} ${esc(catalogue.libelleComplet(vers))} ?</h3><p>${n ? `Les ${n} lignes « ${esc(a.libelle)} » passeront en « ${esc(b.libelle)} », ` : ''}${enf ? `ses ${enf} sous-catégorie${enf > 1 ? 's' : ''} suivront, ` : ''}et « ${esc(a.libelle)} » sera masquée.</p><div class="boutons" style="margin-top:var(--e4)"><button class="primaire" id="fu-oui">Oui, réunir</button><button id="fu-non">Non</button></div>`);
   $('#fu-non').onclick = fermerFeuille;
   $('#fu-oui').onclick = async () => { annulation.prendre('fusion'); try { catalogue.fusionner(etat.rules, etat.data, de, vers); } catch (e) { toast(e.message, 'bad'); return; } marquer('rules'); marquer('data'); fermerFeuille(); recategoriser(); await sauver(); toast('Réunies', 'ok'); };
 }
 // accès pour le scénario de test (tests/scenario.js) ; sans effet pour l'utilisatrice
-window.__app = { etat, importerFichiers, backendGitHub, store, montrerEcran, annulation, sauver, tests, engine, CAT };
+window.__app = { etat, importerFichiers, backendGitHub, store, montrerEcran, annulation, sauver, tests, engine, CAT, catalogue, stats };
 })();
 </script>
 </body>
